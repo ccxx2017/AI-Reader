@@ -224,6 +224,9 @@
           <button @click="adjustFontSize(-1)" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none text-gray-600 dark:text-gray-300" title="减小字号">
             <i class="fas fa-search-minus"></i>
           </button>
+          <button @click="adjustFontSize(-2)" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none text-gray-600 dark:text-gray-300" title="缩小字号">
+            <i class="fas fa-font text-sm"></i>
+          </button>
         </div>
       </div>
       
