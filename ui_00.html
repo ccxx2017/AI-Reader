@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Reading Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.1.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'primary-dark': '#4A49B0',
+                        'light-bg': '#FFFFFF',
+                        'dark-bg': '#181818',
+                        'dark-card': '#242424',
+                        'light-card': '#F5F5F7',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .book {
+            perspective: 1500px;
+        }
+        
+        .book-content {
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+        }
+        
+        .page {
+            backface-visibility: hidden;
+            transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
+            transform-origin: left center;
+            background-image: 
+                linear-gradient(to right, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 10%),
+                linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 5%);
+        }
+        
+        .dark .page {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 10%),
+                linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 5%);
+        }
+        
+        .animate-scan {
+            animation: scanAnimation 2s ease-in-out;
+            position: relative;
+        }
+        
+        @keyframes scanAnimation {
+            0% { box-shadow: inset 0 -3px 0 0 rgba(93, 92, 222, 0.4); }
+            50% { box-shadow: inset 0 -400px 0 0 rgba(93, 92, 222, 0.2); }
+            100% { box-shadow: inset 0 -3px 0 0 rgba(93, 92, 222, 0.4); }
+        }
+        
+        .page-turn {
+            animation: pageTurn 0.8s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+        }
+        
+        @keyframes pageTurn {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(-180deg); }
+        }
+        
+        .thinking-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .typing-animation {
+            overflow: hidden;
+            border-right: 2px solid #5D5CDE;
+            white-space: nowrap;
+            animation: typing 1s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #5D5CDE }
+        }
+        
+        .cached-page-indicator {
+            animation: fadeInOut 2s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        .pointer-indicator {
+            opacity: 0;
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        /* 左侧折叠按钮样式 */
+        .sidebar-toggle {
+            position: absolute;
+            right: -12px;
+            top: 20px;
+            width: 24px;
+            height: 24px;
+            background-color: #5D5CDE;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 0 2px white, 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 30;
+            transition: background-color 0.2s;
+        }
+        
+        .dark .sidebar-toggle {
+            background-color: #5D5CDE;
+            box-shadow: 0 0 0 2px #242424, 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .sidebar-toggle:hover {
+            background-color: #4A49B0;
+        }
+        
+        /* 侧边栏折叠状态 */
+        .sidebar-collapsed {
+            width: 48px !important;
+            min-width: 48px !important;
+            overflow: visible !important; /* 确保按钮可见 */
+        }
+        
+        .sidebar-collapsed .card {
+            border-radius: 0.5rem 0 0 0.5rem;
+        }
+        
+        .sidebar-collapsed .normal-content {
+            display: none !important;
+        }
+        
+        /* 侧边栏图标栏 */
+        .sidebar-icons {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 2.5rem;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar-collapsed .sidebar-icons {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .sidebar-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5D5CDE;
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .dark .sidebar-icon {
+            color: #5D5CDE;
+        }
+        
+        .sidebar-icon:hover {
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+        
+        .dark .sidebar-icon:hover {
+            background-color: rgba(93, 92, 222, 0.2);
+        }
+        
+        /* 折叠侧边栏动画 */
+        .sidebar-transition {
+            transition: width 0.3s ease;
+        }
+        
+        .panel-container-transition {
+            transition: width 0.3s ease;
+        }
+        
+        /* 拖拽分隔线相关样式 - 修复版 */
+        .resizer {
+            width: 8px;
+            background-color: #5D5CDE;
+            cursor: col-resize !important; /* 确保光标始终是左右箭头 */
+            transition: background-color 0.2s;
+            display: none;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .resizer::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 40px;
+            background-color: #fff;
+            border-radius: 2px;
+        }
+        
+        .dark .resizer {
+            background-color: #374151;
+        }
+        
+        .dark .resizer::after {
+            background-color: #555;
+        }
+        
+        .resizer:hover, .resizer.active {
+            background-color: #5D5CDE;
+        }
+        
+        .resizer:hover::after, .resizer.active::after {
+            background-color: #fff;
+        }
+        
+        @media (min-width: 1024px) {
+            .resizer {
+                display: block;
+            }
+        }
+        
+        /* Modal Styles */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        .modal-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            width: 100%;
+            max-width: 32rem;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+        }
+        
+        .dark .modal-content {
+            background-color: #242424;
+        }
+        
+        .modal-backdrop.active .modal-content {
+            transform: translateY(0);
+        }
+        
+        /* Highlight Styles */
+        .highlighted-text {
+            background-color: rgba(255, 255, 0, 0.3);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .dark .highlighted-text {
+            background-color: rgba(255, 255, 0, 0.2);
+        }
+        
+        /* User Avatar */
+        .user-avatar {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .user-avatar::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #10B981;
+            border: 2px solid white;
+        }
+        
+        .dark .user-avatar::after {
+            border-color: #181818;
+        }
+        
+        /* Navigation Menu */
+        .nav-menu {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-menu.open {
+            transform: translateX(0);
+        }
+        
+        /* Note indicators */
+        .note-indicator {
+            position: absolute;
+            right: -20px;
+            width: 18px;
+            height: 18px;
+            background-color: #FBBF24;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1F2937;
+            font-size: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        
+        .note-indicator:hover {
+            transform: scale(1.2);
+            background-color: #F59E0B;
+        }
+        
+        /* Selection menu */
+        .selection-menu {
+            position: absolute;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 6px;
+            display: flex;
+            z-index: 10;
+        }
+        
+        .dark .selection-menu {
+            background-color: #374151;
+        }
+        
+        .selection-menu button {
+            background-color: transparent;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 14px;
+            cursor: pointer;
+            color: #374151;
+            transition: background-color 0.2s;
+        }
+        
+        .dark .selection-menu button {
+            color: #E5E7EB;
+        }
+        
+        .selection-menu button:hover {
+            background-color: #F3F4F6;
+        }
+        
+        .dark .selection-menu button:hover {
+            background-color: #4B5563;
+        }
+        
+        /* 内容区域的占位优化 */
+        .book-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .book-content-wrapper {
+            flex-grow: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .book-footer {
+            flex-shrink: 0;
+            border-top: 1px solid rgba(229, 231, 235, 0.5);
+            padding-top: 8px;
+            margin-top: 10px;
+        }
+        
+        /* 主内容区域布局 */
+        .main-content {
+            display: flex;
+            flex-direction: column; /* 默认垂直布局，移动端友好 */
+            gap: 1rem; /* 垂直间距 */
+        }
+        
+        @media (min-width: 1024px) {
+            .main-content {
+                flex-direction: row; /* 大屏幕时切换为水平布局 */
+                height: calc(100vh - 200px);
+                min-height: 600px;
+            }
+        }
+        
+        /* 移动设备上的面板样式 */
+        @media (max-width: 1023px) {
+            #book-panel, #chat-panel {
+                width: 100% !important; /* 强制全宽 */
+                margin-bottom: 1rem;
+            }
+            
+            .panel-container {
+                min-height: 500px; /* 确保移动端有足够高度 */
+            }
+            
+            .book-content-wrapper {
+                height: 400px;
+            }
+        }
+        
+        /* 主题切换样式 */
+        body.light {
+            background-color: #FFFFFF;
+            color: #333333;
+        }
+        
+        body.dark {
+            background-color: #181818;
+            color: #EEEEEE;
+        }
+        
+        .light .nav-bar {
+            background-color: #F5F5F7;
+            border-bottom: 1px solid #EEEEEE;
+        }
+        
+        .dark .nav-bar {
+            background-color: #242424;
+            border-bottom: 1px solid #333333;
+        }
+        
+        .light .card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .dark .card {
+            background-color: #242424;
+            border: 1px solid #333333;
+        }
+        
+        .theme-toggle-container {
+            position: relative;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        
+        .theme-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            width: 150px;
+            background-color: white;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border-radius: 0.5rem;
+            z-index: 40;
+            overflow: hidden;
+            display: none;
+        }
+        
+        .dark .theme-dropdown {
+            background-color: #333;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+        }
+        
+        .theme-dropdown.show {
+            display: block;
+        }
+        
+        .theme-option {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .theme-option:hover {
+            background-color: #F3F4F6;
+        }
+        
+        .dark .theme-option:hover {
+            background-color: #404040;
+        }
+        
+        .theme-color-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+        }
+        
+        .theme-light .theme-color-indicator {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+        }
+        
+        .theme-dark .theme-color-indicator {
+            background-color: #242424;
+            border: 1px solid #333333;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Top Navigation Bar -->
+    <nav class="nav-bar bg-light-card dark:bg-gray-900 shadow-sm py-2 px-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <button id="menu-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none">
+                    <i class="fas fa-bars text-gray-600 dark:text-gray-300"></i>
+                </button>
+                <div class="text-xl font-bold text-primary">AI 阅读助手</div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <div class="theme-toggle-container">
+                    <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none">
+                        <i class="fas fa-moon text-gray-600 dark:hidden"></i>
+                        <i class="fas fa-sun text-gray-300 hidden dark:block"></i>
+                    </button>
+                    <div id="theme-dropdown" class="theme-dropdown">
+                        <div class="theme-option theme-light" data-theme="light">
+                            <div class="theme-color-indicator"></div>
+                            <span>浅色模式</span>
+                        </div>
+                        <div class="theme-option theme-dark" data-theme="dark">
+                            <div class="theme-color-indicator"></div>
+                            <span>深色模式</span>
+                        </div>
+                    </div>
+                </div>
+                <button id="notification-button" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none">
+                    <div class="relative">
+                        <i class="fas fa-bell text-gray-600 dark:text-gray-300"></i>
+                        <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center text-white">2</div>
+                    </div>
+                </button>
+                <div id="user-menu-button" class="user-avatar w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white">
+                    <span>张</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Side Navigation Menu -->
+    <div id="side-nav" class="fixed left-0 top-0 bottom-0 w-64 bg-white dark:bg-gray-900 shadow-lg z-40 nav-menu">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <div class="font-bold text-lg">菜单</div>
+            <button id="close-menu" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none">
+                <i class="fas fa-times text-gray-600 dark:text-gray-300"></i>
+            </button>
+        </div>
+        
+        <div class="p-2">
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-home text-primary"></i>
+                <span>首页</span>
+            </div>
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-book text-primary"></i>
+                <span>我的书架</span>
+            </div>
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-history text-primary"></i>
+                <span>阅读历史</span>
+            </div>
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-sticky-note text-primary"></i>
+                <span>我的笔记</span>
+            </div>
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-bookmark text-primary"></i>
+                <span>书签</span>
+            </div>
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3">
+                <i class="fas fa-cog text-primary"></i>
+                <span>设置</span>
+            </div>
+        </div>
+        
+        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="py-2 px-4 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer flex items-center space-x-3 text-red-500">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>退出登录</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-6 main-content-container">
+        <div class="main-content">
+            <!-- Left sidebar - System status -->
+            <div id="sidebar" class="sidebar-transition w-full lg:w-1/5 lg:pr-6 overflow-y-auto relative">
+                <div class="card bg-white dark:bg-dark-card rounded-lg p-4 shadow-sm h-full relative">
+                    <!-- 折叠按钮 -->
+                    <div class="sidebar-toggle" id="sidebar-toggle">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    
+                    <!-- 正常状态下显示的内容 -->
+                    <div class="normal-content">
+                        <h2 class="font-semibold text-lg mb-3">系统状态</h2>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm">摄像头</span>
+                                <span id="camera-status" class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">已启用</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm">页面检测</span>
+                                <span id="detection-status" class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">待机</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm">AI 处理</span>
+                                <span id="ai-status" class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">待机</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm">已捕获页面</span>
+                                <span id="pages-count" class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">0</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <h3 class="font-medium text-sm mb-2">当前书籍信息</h3>
+                            <div class="bg-gray-50 dark:bg-gray-800 rounded-md p-3 shadow-sm">
+                                <div class="text-sm font-medium">量子计算基础</div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">作者: Richard P. Feynman</div>
+                                <div class="flex items-center mt-2">
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">阅读进度:</div>
+                                    <div class="ml-2 flex-grow bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                                        <div class="bg-primary h-1.5 rounded-full" style="width: 25%"></div>
+                                    </div>
+                                    <div class="ml-2 text-xs text-gray-500 dark:text-gray-400">25%</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-medium text-sm">阅读历史</h3>
+                                <button class="text-xs text-primary hover:text-primary-dark">查看全部</button>
+                            </div>
+                            <div id="reading-history" class="text-xs space-y-1 text-gray-500 dark:text-gray-400">
+                                <div class="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                                    <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-book-open text-blue-500 dark:text-blue-300 text-xs"></i>
+                                    </div>
+                                    <div class="flex-grow overflow-hidden">
+                                        <div class="truncate">量子计算基础 - 第42页</div>
+                                        <div class="text-gray-400 dark:text-gray-500 text-xs">今天 14:30</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                                    <div class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-book-open text-purple-500 dark:text-purple-300 text-xs"></i>
+                                    </div>
+                                    <div class="flex-grow overflow-hidden">
+                                        <div class="truncate">现代计算机历史 - 第112页</div>
+                                        <div class="text-gray-400 dark:text-gray-500 text-xs">昨天 18:15</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
+                                    <div class="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-book-open text-green-500 dark:text-green-300 text-xs"></i>
+                                    </div>
+                                    <div class="flex-grow overflow-hidden">
+                                        <div class="truncate">机器学习入门 - 第76页</div>
+                                        <div class="text-gray-400 dark:text-gray-500 text-xs">3天前</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="font-medium text-sm">我的笔记</h3>
+                                <button class="text-xs text-primary hover:text-primary-dark">管理</button>
+                            </div>
+                            <div class="text-xs space-y-2">
+                                <div class="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded-md border-l-2 border-yellow-400">
+                                    <div class="font-medium">关于量子叠加态</div>
+                                    <div class="text-gray-600 dark:text-gray-400 mt-1">量子比特可以同时处于多个状态，这与经典比特只能是0或1不同...</div>
+                                    <div class="text-gray-400 dark:text-gray-500 mt-1">页码: 42</div>
+                                </div>
+                                <div class="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded-md border-l-2 border-yellow-400">
+                                    <div class="font-medium">量子计算优势</div>
+                                    <div class="text-gray-600 dark:text-gray-400 mt-1">量子计算机由于叠加态原理，可以同时处理2^n个状态...</div>
+                                    <div class="text-gray-400 dark:text-gray-500 mt-1">页码: 43</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 折叠状态下显示的图标 -->
+                    <div class="sidebar-icons">
+                        <div class="sidebar-icon" title="摄像头">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                        <div class="sidebar-icon" title="页面检测">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                        <div class="sidebar-icon" title="AI 处理">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="sidebar-icon" title="书籍信息">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="sidebar-icon" title="阅读历史">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="sidebar-icon" title="我的笔记">
+                            <i class="fas fa-sticky-note"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Center - Book display -->
+            <div class="panel-container-transition w-full lg:w-2/5 lg:px-1 panel-container" id="book-panel">
+                <div class="card bg-white dark:bg-dark-card rounded-lg p-4 shadow-sm h-full book-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center">
+                            <h2 class="font-semibold text-lg">书籍视图</h2>
+                            <div class="ml-2 flex space-x-1">
+                                <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                    <i class="fas fa-search-minus"></i>
+                                </button>
+                                <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                    <i class="fas fa-search-plus"></i>
+                                </button>
+                                <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                    <i class="fas fa-bookmark"></i>
+                                </button>
+                                <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="prev-page" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                                &larr; 上一页
+                            </button>
+                            <button id="next-page" class="px-3 py-1 bg-primary text-white rounded-md text-sm font-medium hover:bg-primary-dark transition-colors">
+                                下一页 &rarr;
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="book-content-wrapper">
+                        <div class="book h-full" style="max-width: 100%;">
+                            <div class="pointer-events-none absolute inset-0 z-10 pointer-indicator hidden flex items-center justify-center opacity-0">
+                                <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+                                    <div class="w-10 h-10 rounded-full bg-primary/40 flex items-center justify-center">
+                                        <div class="w-6 h-6 rounded-full bg-primary"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="book-content w-full h-full relative">
+                                <div id="page-container" class="w-full h-full overflow-hidden">
+                                    <div id="current-page" class="page absolute inset-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 overflow-y-auto">
+                                        <div class="w-full text-center mb-4">
+                                            <h3 class="font-bold text-xl">Quantum Computing Fundamentals</h3>
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">Chapter 3: Quantum Superposition</p>
+                                            <div class="text-right text-xs text-gray-400 dark:text-gray-500">Page 42</div>
+                                        </div>
+                                        
+                                        <p class="mb-4 relative">
+                                            Quantum superposition is one of the fundamental principles that makes quantum computing powerful and distinctive from classical computing. In classical systems, a bit must be in one definite state - either 0 or 1. However, quantum bits or "<span class="highlighted-text">qubits</span>" can exist in a superposition of both states simultaneously.
+                                            <span class="note-indicator" style="top: 10px;">
+                                                <i class="fas fa-comment-alt text-xs"></i>
+                                            </span>
+                                        </p>
+                                        
+                                        <p class="mb-4">
+                                            Mathematically, we represent this as:
+                                        </p>
+                                        
+                                        <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-md text-center mb-4">
+                                            |ψ⟩ = α|0⟩ + β|1⟩
+                                        </div>
+                                        
+                                        <p class="mb-4">
+                                            Where α and β are complex numbers called probability amplitudes, and |α|² + |β|² = 1. When we measure the qubit, the superposition "collapses" and we observe either state |0⟩ with probability |α|² or state |1⟩ with probability |β|².
+                                        </p>
+                                        
+                                        <p class="mb-4 relative">
+                                            This property allows quantum computers to process <span class="highlighted-text">vast amounts of information simultaneously</span>. While a classical system with n bits can represent only one of 2^n possible states at any given time, a quantum system with n qubits can represent all 2^n states at once through superposition.
+                                            <span class="note-indicator" style="top: 10px;">
+                                                <i class="fas fa-comment-alt text-xs"></i>
+                                            </span>
+                                        </p>
+                                        
+                                        <div class="border-l-4 border-primary pl-4 py-2 mb-4">
+                                            <p class="italic">
+                                                "Quantum superposition challenges our intuitive understanding of reality. It is not merely a limitation of our knowledge, but a fundamental property of quantum systems."
+                                            </p>
+                                            <p class="text-right text-sm">- Richard Feynman</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="cached-indicator" class="hidden absolute top-4 right-4 bg-blue-500 text-white text-xs font-medium py-1 px-3 rounded-full shadow-md cached-page-indicator">
+                                已加载缓存页面
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="book-footer flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+                        <span>请将书籍放在摄像头下方</span>
+                        <div class="flex items-center">
+                            <button class="mr-2 p-1 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <i class="fas fa-list-ol"></i>
+                            </button>
+                            <span id="current-page-number">页码: 42 / 326</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Resizable divider - Only visible on large screens -->
+            <div id="resizer" class="resizer my-2 lg:my-0 lg:h-full"></div>
+            
+            <!-- Right - Chat and conversation -->
+            <div class="panel-container-transition w-full lg:w-2/5 lg:px-1 panel-container" id="chat-panel">
+                <div class="card bg-white dark:bg-dark-card rounded-lg p-4 shadow-sm h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-semibold text-lg">AI 阅读助手</h2>
+                        <div class="flex space-x-1">
+                            <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                <i class="fas fa-expand-alt"></i>
+                            </button>
+                            <button class="p-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="chat-container" class="flex-grow overflow-y-auto mb-4 space-y-4">
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div class="font-medium text-sm text-primary mb-1">AI 助手</div>
+                                    <div class="text-gray-500 text-xs">14:35</div>
+                                </div>
+                                <p class="text-sm">
+                                    欢迎回来，张先生！我看到您继续阅读《量子计算基础》第42页。有什么我可以帮您解答的问题吗？
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div class="font-medium text-sm text-primary mb-1">AI 助手</div>
+                                    <div class="text-gray-500 text-xs">14:36</div>
+                                </div>
+                                <p class="text-sm">
+                                    我注意到您之前对量子叠加态特别感兴趣。本页主要讨论了量子比特如何同时存在于多个状态，以及这与经典比特的区别。如果您想了解更多，可以提问关于：
+                                </p>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <button class="px-2 py-1 bg-primary/20 text-primary rounded-full text-xs hover:bg-primary/30">量子叠加态的数学表示</button>
+                                    <button class="px-2 py-1 bg-primary/20 text-primary rounded-full text-xs hover:bg-primary/30">波函数崩塌的含义</button>
+                                    <button class="px-2 py-1 bg-primary/20 text-primary rounded-full text-xs hover:bg-primary/30">量子计算的实际应用</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start justify-end">
+                            <div class="mr-3 bg-primary/20 rounded-lg p-3 shadow-sm max-w-[80%]">
+                                <div class="flex justify-between items-start">
+                                    <div class="text-gray-500 text-xs">14:37</div>
+                                    <div class="font-medium text-sm mb-1">我</div>
+                                </div>
+                                <p class="text-sm">量子叠加态与经典状态有什么本质区别？</p>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-start">
+                            <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div class="font-medium text-sm text-primary mb-1">AI 助手</div>
+                                    <div class="text-gray-500 text-xs">14:38</div>
+                                </div>
+                                <p class="text-sm">
+                                    量子叠加态与经典状态的本质区别在于确定性的缺失。在经典世界中，物体必须处于确定的、明确定义的状态。就像书中提到的，经典比特必须是0或1，不可能同时是两者。这与我们日常经验中物体具有确定位置、能量等属性的认知相一致。
+                                </p>
+                                <p class="text-sm mt-2">
+                                    相比之下，量子叠加允许量子系统在被测量前同时存在于多个状态。一个量子比特可以同时表示0和1，具有特定的概率振幅。这不仅仅是我们知识的局限性（如在经典概率中），而是量子系统的基本特性。
+                                </p>
+                                <p class="text-sm mt-2">
+                                    当我们测量处于叠加态的系统时，波函数会"塌缩"到一个确定状态，概率由量子态的概率振幅决定。这种概率性和同时存在于多个状态的能力使量子系统从根本上区别于经典系统。
+                                </p>
+                                <div class="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2 flex justify-between">
+                                    <button class="text-xs text-primary hover:text-primary-dark">保存为笔记</button>
+                                    <div class="flex space-x-2">
+                                        <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                            <i class="far fa-thumbs-up"></i>
+                                        </button>
+                                        <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                            <i class="far fa-thumbs-down"></i>
+                                        </button>
+                                        <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                            <i class="far fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 w-full">
+                        <div class="flex items-center space-x-2 w-full">
+                            <div class="flex-grow min-w-0">
+                                <input id="user-question" type="text" placeholder="提问关于这一页内容的问题..." class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-primary">
+                            </div>
+                            <div class="flex-shrink-0">
+                                <button id="ask-button" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors flex items-center whitespace-nowrap">
+                                    <span>提问</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                            <button class="mr-3 text-primary hover:text-primary-dark">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <button class="mr-3 text-primary hover:text-primary-dark">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <span>示例：</span>
+                            <button class="ml-1 underline hover:text-primary">量子叠加态的应用</button>
+                            <span class="mx-1">或</span>
+                            <button class="underline hover:text-primary">双缝实验解释</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Selection Menu (Hidden by default) -->
+    <div id="selection-menu" class="selection-menu hidden">
+        <button id="highlight-btn">
+            <i class="fas fa-highlighter mr-1"></i> 高亮
+        </button>
+        <button id="note-btn">
+            <i class="fas fa-sticky-note mr-1"></i> 添加笔记
+        </button>
+        <button id="search-btn">
+            <i class="fas fa-search mr-1"></i> 搜索
+        </button>
+    </div>
+
+    <script>
+        // 检测系统主题首选项
+        function detectSystemTheme() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        
+        // 设置主题 - 修复版
+        function setTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.body.classList.add('dark');
+                document.body.classList.remove('light');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.body.classList.add('light');
+                document.body.classList.remove('dark');
+            }
+            
+            // 更新图标显示
+            updateThemeIcon(theme);
+            
+            // 保存用户主题选择
+            localStorage.setItem('theme', theme);
+        }
+        
+        // 更新主题图标
+        function updateThemeIcon(theme) {
+            const moonIcon = document.querySelector('#theme-toggle .fa-moon');
+            const sunIcon = document.querySelector('#theme-toggle .fa-sun');
+            
+            if (theme === 'dark') {
+                moonIcon.classList.add('hidden');
+                sunIcon.classList.remove('hidden');
+            } else {
+                moonIcon.classList.remove('hidden');
+                sunIcon.classList.add('hidden');
+            }
+        }
+        
+        // 初始化主题设置
+        function initTheme() {
+            // 尝试从本地存储中获取用户之前选择的主题
+            const userTheme = localStorage.getItem('theme');
+            
+            if (userTheme) {
+                // 如果有保存的用户选择，使用它
+                setTheme(userTheme);
+            } else {
+                // 否则使用系统首选项
+                const systemTheme = detectSystemTheme() ? 'dark' : 'light';
+                setTheme(systemTheme);
+                
+                // 监听系统主题变化
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                    const newTheme = event.matches ? 'dark' : 'light';
+                    setTheme(newTheme);
+                });
+            }
+        }
+        
+        // 主题切换功能
+        let isThemeDropdownVisible = false;
+        
+        document.getElementById('theme-toggle').addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止事件冒泡导致立即关闭菜单
+            
+            const dropdown = document.getElementById('theme-dropdown');
+            if (isThemeDropdownVisible) {
+                dropdown.classList.remove('show');
+            } else {
+                dropdown.classList.add('show');
+            }
+            isThemeDropdownVisible = !isThemeDropdownVisible;
+        });
+        
+        // 点击其他地方关闭主题菜单
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('theme-dropdown');
+            const toggle = document.getElementById('theme-toggle');
+            if (isThemeDropdownVisible && !toggle.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('show');
+                isThemeDropdownVisible = false;
+            }
+        });
+        
+        // 处理主题选项点击
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', () => {
+                const theme = option.getAttribute('data-theme');
+                setTheme(theme);
+                document.getElementById('theme-dropdown').classList.remove('show');
+                isThemeDropdownVisible = false;
+            });
+        });
+        
+        // 侧边栏折叠功能
+        let isSidebarCollapsed = false;
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
+        const bookPanel = document.getElementById('book-panel');
+        const chatPanel = document.getElementById('chat-panel');
+        
+        // 初始化侧边栏折叠按钮
+        sidebarToggle.addEventListener('click', () => {
+            isSidebarCollapsed = !isSidebarCollapsed;
+            
+            if (isSidebarCollapsed) {
+                // 折叠侧边栏，箭头指向右侧
+                sidebar.classList.add('sidebar-collapsed');
+                sidebarToggle.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            } else {
+                // 展开侧边栏，箭头指向左侧
+                sidebar.classList.remove('sidebar-collapsed');
+                sidebarToggle.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            }
+            
+            // 调整中间面板的宽度
+            adjustPanelWidths();
+        });
+        
+        // 调整面板宽度
+        function adjustPanelWidths() {
+            if (window.innerWidth < 1024) return; // 只在大屏幕上调整
+            
+            const container = document.querySelector('.main-content');
+            if (!container) return;
+            
+            const availableWidth = container.offsetWidth;
+            
+            if (isSidebarCollapsed) {
+                // 侧边栏折叠时
+                const sidebarWidth = 48; // 折叠后的宽度
+                const resizeWidth = 8; // 分隔符宽度
+                const remainingWidth = availableWidth - sidebarWidth - resizeWidth;
+                
+                // 根据比例分配剩余空间
+                const bookRatio = 0.5; // 中间面板占剩余空间的50%
+                const bookNewWidth = Math.floor(remainingWidth * bookRatio);
+                const chatNewWidth = remainingWidth - bookNewWidth;
+                
+                bookPanel.style.width = `${bookNewWidth}px`;
+                chatPanel.style.width = `${chatNewWidth}px`;
+            } else {
+                // 侧边栏展开时，恢复默认比例
+                setInitialPanelWidths();
+            }
+        }
+        
+        // 侧边栏图标点击展开
+        document.querySelectorAll('.sidebar-icon').forEach(icon => {
+            icon.addEventListener('click', () => {
+                // 展开侧边栏
+                if (isSidebarCollapsed) {
+                    sidebar.classList.remove('sidebar-collapsed');
+                    sidebarToggle.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                    isSidebarCollapsed = false;
+                    adjustPanelWidths();
+                }
+            });
+        });
+        
+        // Sample book pages content
+        const bookPages = [
+            {
+                title: "Quantum Computing Fundamentals",
+                chapter: "Chapter 3: Quantum Superposition",
+                pageNumber: 42,
+                content: `
+                    <p class="mb-4 relative">
+                        Quantum superposition is one of the fundamental principles that makes quantum computing powerful and distinctive from classical computing. In classical systems, a bit must be in one definite state - either 0 or 1. However, quantum bits or "<span class="highlighted-text">qubits</span>" can exist in a superposition of both states simultaneously.
+                        <span class="note-indicator" style="top: 10px;">
+                            <i class="fas fa-comment-alt text-xs"></i>
+                        </span>
+                    </p>
+                    
+                    <p class="mb-4">
+                        Mathematically, we represent this as:
+                    </p>
+                    
+                    <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-md text-center mb-4">
+                        |ψ⟩ = α|0⟩ + β|1⟩
+                    </div>
+                    
+                    <p class="mb-4">
+                        Where α and β are complex numbers called probability amplitudes, and |α|² + |β|² = 1. When we measure the qubit, the superposition "collapses" and we observe either state |0⟩ with probability |α|² or state |1⟩ with probability |β|².
+                    </p>
+                    
+                    <p class="mb-4 relative">
+                        This property allows quantum computers to process <span class="highlighted-text">vast amounts of information simultaneously</span>. While a classical system with n bits can represent only one of 2^n possible states at any given time, a quantum system with n qubits can represent all 2^n states at once through superposition.
+                        <span class="note-indicator" style="top: 10px;">
+                            <i class="fas fa-comment-alt text-xs"></i>
+                        </span>
+                    </p>
+                    
+                    <div class="border-l-4 border-primary pl-4 py-2 mb-4">
+                        <p class="italic">
+                            "Quantum superposition challenges our intuitive understanding of reality. It is not merely a limitation of our knowledge, but a fundamental property of quantum systems."
+                        </p>
+                        <p class="text-right text-sm">- Richard Feynman</p>
+                    </div>
+                `
+            },
+            {
+                title: "Quantum Computing Fundamentals",
+                chapter: "Chapter 3: Quantum Superposition",
+                pageNumber: 43,
+                content: `
+                    <p class="mb-4">
+                        The double-slit experiment provides a classic demonstration of quantum superposition. When individual particles like electrons are fired at a barrier with two slits, they create an interference pattern on the detector screen behind the barrier. This indicates that each particle passes through both slits simultaneously in a superposition of states.
+                    </p>
+                    
+                    <p class="mb-4">
+                        However, when we attempt to observe which slit the particle passes through, the interference pattern disappears. This phenomenon, known as "wave function collapse," demonstrates another strange aspect of quantum mechanics: measurement affects the quantum state.
+                    </p>
+                    
+                    <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md mb-4">
+                        <div class="text-center mb-2 font-medium">Double-Slit Experiment Diagram</div>
+                        <div class="flex justify-center items-center space-x-4">
+                            <div class="text-center">
+                                <div class="h-20 w-4 bg-gray-400 dark:bg-gray-500 rounded"></div>
+                                <div class="mt-1 text-xs">Source</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="h-20 w-1 bg-gray-400 dark:bg-gray-500 rounded relative">
+                                    <div class="absolute top-5 left-0 w-1 h-3 bg-white dark:bg-gray-800"></div>
+                                    <div class="absolute top-12 left-0 w-1 h-3 bg-white dark:bg-gray-800"></div>
+                                </div>
+                                <div class="mt-1 text-xs">Slits</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="h-20 w-4 bg-gray-300 dark:bg-gray-600 rounded flex flex-col justify-center items-center">
+                                    <div class="w-3 h-0.5 bg-primary mb-1.5"></div>
+                                    <div class="w-3 h-0.5 bg-primary mb-1.5"></div>
+                                    <div class="w-3 h-0.5 bg-primary mb-1.5"></div>
+                                    <div class="w-3 h-0.5 bg-primary mb-1.5"></div>
+                                    <div class="w-3 h-0.5 bg-primary"></div>
+                                </div>
+                                <div class="mt-1 text-xs">Detector</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="mb-4">
+                        For quantum computing, superposition enables a form of parallelism that's not possible with classical bits. Operations can be performed on multiple quantum states simultaneously, potentially offering exponential speedup for certain computational problems.
+                    </p>
+                `
+            }
+        ];
+        
+        // Application state
+        let currentPageIndex = 0;
+        let pageCache = {};
+        let readingHistory = [];
+        let processingPage = false;
+        let isLoggedIn = true; // Simulate logged in state
+        
+        // DOM Elements
+        const currentPage = document.getElementById('current-page');
+        const currentPageNumber = document.getElementById('current-page-number');
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const chatContainer = document.getElementById('chat-container');
+        const userQuestion = document.getElementById('user-question');
+        const askButton = document.getElementById('ask-button');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sideNav = document.getElementById('side-nav');
+        const closeMenu = document.getElementById('close-menu');
+        const selectionMenu = document.getElementById('selection-menu');
+        const noteIndicators = document.querySelectorAll('.note-indicator');
+        const resizer = document.getElementById('resizer');
+        
+        // Initialize the application
+        function initApp() {
+            initTheme(); // 初始化主题
+            setupEventListeners();
+            initResizer(); // 拖拽分隔线初始化
+            
+            // Set up text selection handling
+            document.addEventListener('mouseup', handleTextSelection);
+            
+            // Set up note indicator clicks
+            noteIndicators.forEach(indicator => {
+                indicator.addEventListener('click', showNotePopup);
+            });
+            
+            // 检查是否为移动设备，并调整布局
+            checkDeviceAndAdjustLayout();
+            window.addEventListener('resize', checkDeviceAndAdjustLayout);
+        }
+        
+        // 检查设备类型并调整布局
+        function checkDeviceAndAdjustLayout() {
+            const isMobile = window.innerWidth < 1024;
+            
+            // 移动端布局调整
+            if (isMobile) {
+                if (bookPanel) bookPanel.style.width = '100%';
+                if (chatPanel) chatPanel.style.width = '100%';
+                if (resizer) resizer.style.display = 'none';
+                
+                // 隐藏侧边栏折叠按钮
+                if (sidebarToggle) sidebarToggle.style.display = 'none';
+            } else {
+                // 重置拖拽器状态
+                if (resizer) resizer.style.display = 'block';
+                setInitialPanelWidths();
+                
+                // 显示侧边栏折叠按钮
+                if (sidebarToggle) sidebarToggle.style.display = 'flex';
+                
+                // 恢复侧边栏状态
+                if (isSidebarCollapsed) {
+                    sidebar.classList.add('sidebar-collapsed');
+                    adjustPanelWidths();
+                }
+            }
+        }
+        
+        // 设置初始面板宽度
+        function setInitialPanelWidths() {
+            if (!bookPanel || !chatPanel) return;
+            
+            const windowWidth = window.innerWidth;
+            if (windowWidth < 1024) return; // 只在大屏幕上设置
+            
+            const container = document.querySelector('.main-content');
+            const sidebarWidth = isSidebarCollapsed ? 48 : sidebar.offsetWidth;
+            
+            // 根据屏幕大小调整比例
+            let bookRatio, chatRatio;
+            
+            if (windowWidth >= 1600) {
+                bookRatio = 0.55;
+                chatRatio = 0.45;
+            } else if (windowWidth >= 1200) {
+                bookRatio = 0.5;
+                chatRatio = 0.5;
+            } else {
+                bookRatio = 0.45;
+                chatRatio = 0.55;
+            }
+            
+            // 可用宽度 = 总宽度 - 侧边栏宽度 - 拖拽条宽度
+            const availableWidth = container.offsetWidth - sidebarWidth - 20;
+            
+            const bookWidth = Math.floor(availableWidth * bookRatio);
+            const chatWidth = availableWidth - bookWidth;
+            
+            bookPanel.style.width = `${bookWidth}px`;
+            chatPanel.style.width = `${chatWidth}px`;
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            prevPageBtn.addEventListener('click', () => navigatePage(-1));
+            nextPageBtn.addEventListener('click', () => navigatePage(1));
+            askButton.addEventListener('click', handleUserQuestion);
+            userQuestion.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleUserQuestion();
+                }
+            });
+            
+            // Side menu
+            menuToggle.addEventListener('click', () => {
+                sideNav.classList.add('open');
+            });
+            
+            closeMenu.addEventListener('click', () => {
+                sideNav.classList.remove('open');
+            });
+        }
+        
+        // Initialize resizer functionality - 修复版
+        function initResizer() {
+            if (!resizer || !bookPanel || !chatPanel) return;
+            
+            let isResizing = false;
+            
+            // Start resize on mousedown
+            resizer.addEventListener('mousedown', (e) => {
+                // 如果是移动端，不启用拖拽
+                if (window.innerWidth < 1024) return;
+                
+                e.preventDefault();
+                isResizing = true;
+                
+                // Add visual feedback
+                resizer.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                
+                // Record initial position and widths
+                const startX = e.clientX;
+                const bookPanelStartWidth = bookPanel.offsetWidth;
+                const chatPanelStartWidth = chatPanel.offsetWidth;
+                
+                // Add temporary event listeners for drag and release
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                
+                // Handle mouse movement during resize
+                function handleMouseMove(e) {
+                    if (!isResizing) return;
+                    
+                    // Calculate how far the mouse has moved
+                    const dx = e.clientX - startX;
+                    
+                    // Calculate new widths
+                    const newBookPanelWidth = bookPanelStartWidth + dx;
+                    const newChatPanelWidth = chatPanelStartWidth - dx;
+                    
+                    // Enforce minimum widths (200px)
+                    const minWidth = 200;
+                    if (newBookPanelWidth >= minWidth && newChatPanelWidth >= minWidth) {
+                        // Apply the new widths directly
+                        bookPanel.style.width = `${newBookPanelWidth}px`;
+                        chatPanel.style.width = `${newChatPanelWidth}px`;
+                    }
+                }
+                
+                // Clean up when mouse is released
+                function handleMouseUp() {
+                    isResizing = false;
+                    resizer.classList.remove('active');
+                    document.body.style.cursor = '';
+                    
+                    // Remove temporary event listeners
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                }
+            });
+        }
+        
+        // Handle text selection
+        function handleTextSelection() {
+            const selection = window.getSelection();
+            
+            if (selection.toString().length > 0) {
+                // Get position for the menu
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                
+                // Position and show the selection menu
+                selectionMenu.style.top = `${rect.bottom + window.scrollY + 10}px`;
+                selectionMenu.style.left = `${rect.left + window.scrollX + (rect.width / 2) - (selectionMenu.offsetWidth / 2)}px`;
+                selectionMenu.classList.remove('hidden');
+                
+                // Handle clicks on menu items
+                document.getElementById('highlight-btn').onclick = () => {
+                    highlightSelectedText();
+                    selectionMenu.classList.add('hidden');
+                };
+                
+                document.getElementById('note-btn').onclick = () => {
+                    showNotePopup();
+                    selectionMenu.classList.add('hidden');
+                };
+                
+                document.getElementById('search-btn').onclick = () => {
+                    // Implement search functionality
+                    userQuestion.value = selection.toString();
+                    selectionMenu.classList.add('hidden');
+                };
+                
+            } else {
+                // Hide menu if no text is selected
+                selectionMenu.classList.add('hidden');
+            }
+        }
+        
+        // Highlight selected text
+        function highlightSelectedText() {
+            const selection = window.getSelection();
+            if (selection.toString().length > 0) {
+                const range = selection.getRangeAt(0);
+                const highlightedSpan = document.createElement('span');
+                highlightedSpan.className = 'highlighted-text';
+                range.surroundContents(highlightedSpan);
+                selection.removeAllRanges();
+            }
+        }
+        
+        // Show note popup
+        function showNotePopup() {
+            // In a real implementation, this would show a note popup
+            alert("笔记功能即将推出");
+        }
+        
+        // Navigate to new page
+        function navigatePage(direction) {
+            if (processingPage) return;
+            
+            const newIndex = currentPageIndex + direction;
+            if (newIndex < 0 || newIndex >= bookPages.length) return;
+            
+            // Start page processing animation
+            processingPage = true;
+            currentPageIndex = newIndex;
+            
+            setTimeout(() => {
+                renderPage(currentPageIndex);
+                processingPage = false;
+                
+                // Set up note indicator clicks for the new page
+                document.querySelectorAll('.note-indicator').forEach(indicator => {
+                    indicator.addEventListener('click', showNotePopup);
+                });
+            }, 500);
+        }
+        
+        // Render current page
+        function renderPage(index) {
+            const page = bookPages[index];
+            
+            // Update page content
+            currentPage.innerHTML = `
+                <div class="w-full text-center mb-4">
+                    <h3 class="font-bold text-xl">${page.title}</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">${page.chapter}</p>
+                    <div class="text-right text-xs text-gray-400 dark:text-gray-500">Page ${page.pageNumber}</div>
+                </div>
+                ${page.content}
+            `;
+            
+            currentPageNumber.textContent = `页码: ${page.pageNumber} / 326`;
+            
+            // Update navigation buttons
+            prevPageBtn.disabled = index === 0;
+            prevPageBtn.classList.toggle('opacity-50', index === 0);
+            nextPageBtn.disabled = index === bookPages.length - 1;
+            nextPageBtn.classList.toggle('opacity-50', index === bookPages.length - 1);
+            
+            // Save to reading history
+            saveToReadingHistory(page);
+        }
+        
+        // Save to reading history
+        function saveToReadingHistory(page) {
+            // In a real app, this would save to localStorage or a database
+            console.log(`Saved to reading history: ${page.title} - Page ${page.pageNumber}`);
+        }
+        
+        // Handle user questions
+        function handleUserQuestion() {
+            const question = userQuestion.value.trim();
+            if (!question) return;
+            
+            // Add user message to chat
+            addUserMessage(question);
+            userQuestion.value = '';
+            
+            // In a real app, this would send the question to an AI backend
+            setTimeout(() => {
+                // For demo purposes, just show a generic response
+                addAIMessage("量子计算利用了多种量子物理现象，包括叠加态和纠缠。正如您在本页所读到的，叠加态允许量子比特同时表示多个状态，而纠缠则允许量子比特之间存在超越经典物理的相关性。这些特性使量子计算机在特定任务上具有指数级的理论优势，尤其是在模拟量子系统、大数分解和搜索算法方面。不过，目前量子计算仍面临解相干和错误率等技术挑战。");
+            }, 1500);
+        }
+        
+        // Add user message to chat
+        function addUserMessage(message) {
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const messageEl = document.createElement('div');
+            messageEl.className = 'flex items-start justify-end';
+            messageEl.innerHTML = `
+                <div class="mr-3 bg-primary/20 rounded-lg p-3 shadow-sm max-w-[80%]">
+                    <div class="flex justify-between items-start">
+                        <div class="text-gray-500 text-xs">${timestamp}</div>
+                        <div class="font-medium text-sm mb-1">我</div>
+                    </div>
+                    <p class="text-sm">${message}</p>
+                </div>
+                <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+            `;
+            
+            chatContainer.appendChild(messageEl);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Add AI message to chat
+        function addAIMessage(message) {
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const messageEl = document.createElement('div');
+            messageEl.className = 'flex items-start';
+            messageEl.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-3 shadow-sm">
+                    <div class="flex justify-between items-start">
+                        <div class="font-medium text-sm text-primary mb-1">AI 助手</div>
+                        <div class="text-gray-500 text-xs">${timestamp}</div>
+                    </div>
+                    <p class="text-sm">${message}</p>
+                    <div class="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2 flex justify-between">
+                        <button class="text-xs text-primary hover:text-primary-dark">保存为笔记</button>
+                        <div class="flex space-x-2">
+                            <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="far fa-thumbs-up"></i>
+                            </button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="far fa-thumbs-down"></i>
+                            </button>
+                            <button class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            chatContainer.appendChild(messageEl);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Initialize the application
+        initApp();
+    </script>
+</body>
+</html>
