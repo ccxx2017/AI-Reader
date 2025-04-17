@@ -26,6 +26,16 @@
             系统状态
           </h2>
           
+          <!-- 摄像头预览小窗（可弹出大窗） -->
+          <div class="camera-preview-container mb-2">
+            <CameraPreview 
+              :isLarge="showLargeCamera" 
+              @toggleSize="showLargeCamera = !showLargeCamera"
+              @ocr-result="handleOcrResult"
+              @ocr-status="handleOcrStatus"
+            />
+          </div>
+          
           <!-- 系统状态总结提示 -->
           <div class="system-status-summary mb-3 px-2.5 py-1.5 rounded-md flex items-center" 
                :class="systemStatusClass">
@@ -1163,6 +1173,7 @@
 
 <script setup>
 import { ref, inject, onMounted, computed } from 'vue';
+import CameraPreview from './CameraOCR.vue';
 
 // 注入侧边栏状态
 const isSidebarCollapsed = inject('sidebarState');
@@ -1831,6 +1842,61 @@ const triggerAchievementAnimation = (achievement) => {
     showAchievementAnimation.value = false;
   }, 5000); // 5秒后自动关闭
 };
+
+//摄像头预览
+const showLargeCamera = ref(false);
+
+// OCR状态
+const ocrStatus = ref({
+  camera: 'idle',
+  page: 'idle',
+  ai: 'idle',
+  captured: 'idle'
+});
+
+// 处理OCR状态更新
+function handleOcrStatus(status) {
+  ocrStatus.value = status;
+  // 更新系统状态提示
+  updateSystemStatus(status);
+}
+
+// 处理OCR识别结果（传递给BookPanel）
+function handleOcrResult(text) {
+  // 通过事件总线或直接调用BookPanel的方法
+  if (window.bookPanelInstance && typeof window.bookPanelInstance.handleOcrResult === 'function') {
+    window.bookPanelInstance.handleOcrResult(text);
+  }
+}
+
+// 更新系统状态提示
+function updateSystemStatus(status) {
+  if (status.camera === 'error' || status.page === 'error' || status.ai === 'error') {
+    systemStatusMessage.value = '识别过程出错，请重试';
+    systemStatusClass.value = 'bg-red-100 text-red-800';
+    systemStatusIcon.value = 'fa-exclamation-circle';
+  } else if (status.ai === 'processing') {
+    systemStatusMessage.value = 'AI正在处理中...';
+    systemStatusClass.value = 'bg-blue-100 text-blue-800';
+    systemStatusIcon.value = 'fa-spinner fa-spin';
+  } else if (status.page === 'detecting') {
+    systemStatusMessage.value = '正在检测页面...';
+    systemStatusClass.value = 'bg-yellow-100 text-yellow-800';
+    systemStatusIcon.value = 'fa-search';
+  } else if (status.captured === 'updated') {
+    systemStatusMessage.value = '页面已成功识别';
+    systemStatusClass.value = 'bg-green-100 text-green-800';
+    systemStatusIcon.value = 'fa-check-circle';
+  } else if (status.camera === 'working') {
+    systemStatusMessage.value = '摄像头工作中...';
+    systemStatusClass.value = 'bg-blue-100 text-blue-800';
+    systemStatusIcon.value = 'fa-camera';
+  } else {
+    systemStatusMessage.value = '系统正常运行中';
+    systemStatusClass.value = 'bg-gray-100 text-gray-800';
+    systemStatusIcon.value = 'fa-check';
+  }
+}
 
 onMounted(() => {
   // 初始状态同步

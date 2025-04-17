@@ -112,83 +112,61 @@
         <div class="book-content-wrapper flex-grow overflow-hidden">
           <div class="book h-full">
             <div class="book-content h-full">
-              <!-- 轻量级状态指示器 -->
-              <div v-if="showPageStatus" class="page-status absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 bg-opacity-80 text-white px-3 py-1 rounded-full text-xs z-20">
-                {{ pageStatusText }}
+              <!-- 仅保留主内容区，彻底移除CameraOCR相关内容 -->
+              <div class="page h-full overflow-y-auto relative bg-white dark:bg-gray-900" 
+                   @mouseup="handleTextSelection" 
+                   @contextmenu.prevent
+                   ref="pageContentRef">
+                <div v-html="displayContent"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 侧边笔记面板（优化设计） -->
+        <div class="side-notes-panel" :class="{'expanded': showNotesPanel}">
+          <div class="notes-toggle-button" @click="toggleNotesPanel">
+            <i :class="showNotesPanel ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
+          </div>
+          
+          <!-- 笔记内容 -->
+          <div class="notes-content" v-if="showNotesPanel">
+            <div class="notes-header">
+              <h3><i class="fas fa-sticky-note"></i> 页面笔记 ({{ currentPageNotes.length }})</h3>
+              <button @click="addEmptyNote" class="add-note-btn">
+                <i class="fas fa-plus"></i> 添加笔记
+              </button>
+            </div>
+            
+            <div class="notes-list">
+              <div v-if="currentPageNotes.length === 0" class="empty-notes">
+                <i class="far fa-sticky-note"></i>
+                <p>当前页面没有笔记</p>
+                <p class="help-text">选择文本后点击<i class="fas fa-sticky-note"></i>图标添加笔记，或使用上方的添加按钮</p>
               </div>
               
-              <!-- 当前页面 - 结合图1和图2的样式优点 -->
-              <div class="page h-full overflow-y-auto relative bg-white dark:bg-gray-900" 
-                  @mouseup="handleTextSelection" 
-                  @contextmenu.prevent
-                  style="position: relative;">
-                <!-- 章节标题和页码 - 采用图2的样式 -->
-                <div class="p-6 pb-2 border-b border-gray-200 dark:border-gray-700">
-                  <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ chapters[currentChapter]?.title || '章节标题' }}</h2>
-                  <div class="flex justify-between items-center mt-1">
-                    <div class="text-sm text-gray-600 dark:text-gray-300">Page {{ currentPageIndex + 1 }}</div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">
-                      <button class="hover:text-blue-500 focus:outline-none p-1" title="添加书签">
-                        <i class="far fa-bookmark"></i>
-                      </button>
-                      <button class="hover:text-blue-500 focus:outline-none p-1 ml-2" title="添加笔记">
-                        <i class="far fa-sticky-note"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div v-for="(note, index) in currentPageNotes" :key="note.id" class="note-item" :class="{ 'active': note.active }">
+                <div class="note-source-text" v-if="note.sourceText">{{ note.sourceText }}</div>
+                <div class="note-content" v-if="!note.editing">{{ note.text }}</div>
+                <textarea v-else class="w-full p-2 border rounded" v-model="note.text" rows="3"></textarea>
                 
-                <!-- 使用动态组件来渲染增强的书籍内容 -->
-                <div v-html="processedContent" ref="pageContentRef" class="content-area bg-white dark:bg-gray-900 rounded-lg p-6 mb-2"></div>
-                
-                <!-- 侧边笔记面板（优化设计） -->
-                <div class="side-notes-panel" :class="{'expanded': showNotesPanel}">
-                  <div class="notes-toggle-button" @click="toggleNotesPanel">
-                    <i :class="showNotesPanel ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
-                  </div>
-                  
-                  <!-- 笔记内容 -->
-                  <div class="notes-content" v-if="showNotesPanel">
-                    <div class="notes-header">
-                      <h3><i class="fas fa-sticky-note"></i> 页面笔记 ({{ currentPageNotes.length }})</h3>
-                      <button @click="addEmptyNote" class="add-note-btn">
-                        <i class="fas fa-plus"></i> 添加笔记
-                      </button>
-                    </div>
-                    
-                    <div class="notes-list">
-                      <div v-if="currentPageNotes.length === 0" class="empty-notes">
-                        <i class="far fa-sticky-note"></i>
-                        <p>当前页面没有笔记</p>
-                        <p class="help-text">选择文本后点击<i class="fas fa-sticky-note"></i>图标添加笔记，或使用上方的添加按钮</p>
-                      </div>
-                      
-                      <div v-for="(note, index) in currentPageNotes" :key="note.id" class="note-item" :class="{ 'active': note.active }">
-                        <div class="note-source-text" v-if="note.sourceText">{{ note.sourceText }}</div>
-                        <div class="note-content" v-if="!note.editing">{{ note.text }}</div>
-                        <textarea v-else class="w-full p-2 border rounded" v-model="note.text" rows="3"></textarea>
-                        
-                        <div class="note-actions">
-                          <button v-if="!note.editing" @click="showNoteContent(note, index)" class="note-action-btn">
-                            <i class="fas fa-edit"></i> 编辑
-                          </button>
-                          <button v-if="note.editing" @click="saveNote(note, index)" class="note-action-btn">
-                            <i class="fas fa-save"></i> 保存
-                          </button>
-                          <button @click="deleteNote(index)" class="note-action-btn delete">
-                            <i class="fas fa-trash"></i> 删除
-                          </button>
-                        </div>
-                        <div class="note-timestamp" v-if="note.timestamp">{{ note.timestamp }}</div>
-                      </div>
-                    </div>
-                    
-                    <div class="note-instructions" v-if="currentPageNotes.length > 0">
-                      <i class="fas fa-info-circle"></i> 提示：选中文本后可直接添加笔记
-                    </div>
-                  </div>
+                <div class="note-actions">
+                  <button v-if="!note.editing" @click="showNoteContent(note, index)" class="note-action-btn">
+                    <i class="fas fa-edit"></i> 编辑
+                  </button>
+                  <button v-if="note.editing" @click="saveNote(note, index)" class="note-action-btn">
+                    <i class="fas fa-save"></i> 保存
+                  </button>
+                  <button @click="deleteNote(index)" class="note-action-btn delete">
+                    <i class="fas fa-trash"></i> 删除
+                  </button>
                 </div>
+                <div class="note-timestamp" v-if="note.timestamp">{{ note.timestamp }}</div>
               </div>
+            </div>
+            
+            <div class="note-instructions" v-if="currentPageNotes.length > 0">
+              <i class="fas fa-info-circle"></i> 提示：选中文本后可直接添加笔记
             </div>
           </div>
         </div>
@@ -305,28 +283,49 @@
     </div>
   </div>
 </template>
+  <script setup>
+    import { ref, inject, computed, onMounted, onUnmounted } from 'vue';
+    import { marked } from 'marked';
 
-<script setup>
-  import { ref, inject, computed, onMounted, onUnmounted } from 'vue';
-  import { marked } from 'marked';
+    // 添加页面内容引用
+    const pageContentRef = ref(null);
 
-  // 从上层组件注入书籍数据
-  const { bookPages, currentPageIndex, navigatePageParent } = inject('bookData');
+    // 从上层组件注入书籍数据
+    const { bookPages, currentPageIndex, navigatePageParent } = inject('bookData');
 
-  // 页面内容引用
-  const pageContentRef = ref(null);
+    // OCR识别结果内容
+    const ocrContent = ref('');
 
-  // 顶部和底部导航栏折叠状态
-  const isHeaderCollapsed = ref(false);
-  const isFooterCollapsed = ref(false);
+    // 处理OCR识别结果
+    function handleOcrResult(text) {
+      ocrContent.value = text;
+    }
 
-  // 是否启用关键词高亮（默认关闭）
-  const enableKeywordHighlight = ref(false);
-  const forceRefresh = ref(0); // 添加一个变量来强制视图更新
+    // 暴露给全局，以便Sidebar组件调用
+    if (typeof window !== 'undefined') {
+      window.bookPanelInstance = {
+        handleOcrResult
+      };
+    }
 
-  // 模拟书籍数据
-  const demoBookContent = ref([
-    `
+    // 用于Sidebar联动的状态
+    const ocrStatus = ref({camera: 'idle', page: 'idle', ai: 'idle', captured: 'idle'});
+    function handleOcrStatus(status) {
+      ocrStatus.value = status;
+    }
+
+    // 计算当前显示内容（优先显示OCR识别结果，其次显示原书籍内容）
+    const displayContent = computed(() => {
+      if (ocrContent.value) {
+        return ocrContent.value.replace(/\n/g, '<br>');
+      }
+      
+      return getCurrentPageContent();
+    });
+
+    // 模拟书籍数据
+    const demoBookContent = ref([
+      `
 # 深度学习概述
 
 ## 深度学习的关键突破
@@ -869,6 +868,47 @@ onMounted(() => {
         showTermDefinition.value = true;
       }
     }
+    // 确保主拖动条功能正常
+setTimeout(() => {
+  // 查找并保护主拖动条
+  const mainResizer = document.querySelector('#resizer');
+  if (mainResizer) {
+    mainResizer.setAttribute('data-main-resizer', 'true');
+    // 重新添加事件监听器确保功能正常
+    const bookPanel = document.getElementById('book-panel');
+    const chatPanel = document.getElementById('chat-panel');
+    
+    if (bookPanel && chatPanel) {
+      mainResizer.onmousedown = (e) => {
+        e.preventDefault();
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        
+        const startX = e.clientX;
+        const leftWidth = bookPanel.offsetWidth;
+        
+        function onMouseMove(e) {
+          const dx = e.clientX - startX;
+          const newLeftWidth = Math.max(300, leftWidth + dx);
+          const newRightWidth = Math.max(300, chatPanel.offsetWidth - dx);
+          
+          bookPanel.style.width = `${newLeftWidth}px`;
+          chatPanel.style.width = `${newRightWidth}px`;
+        }
+        
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      };
+    }
+  }
+}, 500);
   });
   
   // 直接处理底部灰色拖动条 - 使用最精确的方法，不影响中间拖动条
@@ -915,7 +955,10 @@ onMounted(() => {
       bookFooter.style.marginTop = '0';
       bookFooter.style.borderTop = '1px solid #e5e7eb';
     }
+
   }, 300);
+
+
 });
 
 // 关闭术语定义弹窗
@@ -1054,78 +1097,22 @@ function toggleNotesPanel() {
       '[class*="resize"]'
     ];
     
-    // 查找所有匹配的元素
-    selectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        // 检查元素的位置，找出位于阅读区域和底部导航之间的元素
-        if (
-          // 检查元素是否在页面底部区域
-          rect.bottom > window.innerHeight - 150 && 
-          rect.top > window.innerHeight / 2 && 
-          rect.width > 50 // 是水平拖动条
-        ) {
-          // 这可能是拖动分隔器，移除它
-          el.style.display = 'none';
-          el.style.height = '0';
-          el.style.pointerEvents = 'none';
-          
-          // 阻止事件监听和传播
-          el.onmousedown = (e) => { e.stopPropagation(); return false; };
-          el.ontouchstart = (e) => { e.stopPropagation(); return false; };
-          
-          // 修改元素样式使其不可见
-          el.style.display = 'none';
-          el.style.visibility = 'hidden';
-          el.style.opacity = '0';
-          el.style.position = 'absolute';
-          el.style.zIndex = '-9999';
-          el.style.pointerEvents = 'none';
-          
-          // 如果可能，从DOM中移除元素
-          if (el.parentNode) {
-            try {
-              el.parentNode.removeChild(el);
-            } catch (e) {
-              console.log('无法移除元素，应用样式隐藏');
-            }
-          }
-        }
-      });
-    });
-    
-    // 特殊处理：在book-content-wrapper和book-footer之间可能存在的拖动条
-    const contentWrapper = document.querySelector('.book-content-wrapper');
-    const footer = document.querySelector('.book-footer');
-    
-    if (contentWrapper && footer) {
-      // 移除任何可能位于这两者之间的元素
-      const wrappedRect = contentWrapper.getBoundingClientRect();
-      const footerRect = footer.getBoundingClientRect();
-      
-      // 查找所有位于这个区域的元素
-      const allElements = document.querySelectorAll('*');
-      allElements.forEach(el => {
-        const rect = el.getBoundingClientRect();
-        // 如果元素位于内容区域底部和底部导航之间
-        if (
-          rect.top >= wrappedRect.bottom - 10 && 
-          rect.bottom <= footerRect.top + 10 &&
-          rect.height < 20 && // 拖动条通常高度很小
-          el !== footer && 
-          !footer.contains(el) && 
-          el !== contentWrapper && 
-          !contentWrapper.contains(el)
-        ) {
-          // 隐藏或移除这个元素
-          el.style.display = 'none';
-          el.style.visibility = 'hidden';
-          el.style.height = '0';
-          el.style.opacity = '0';
-        }
-      });
-    }
+    // 只保留这段固定的处理代码，不尝试动态查找和处理拖动条
+setTimeout(() => {
+  // 首先确保主拖动条没有被干扰
+  const mainResizer = document.querySelector('#resizer');
+  if (mainResizer) {
+    mainResizer.setAttribute('data-main-resizer', 'true');
+    // 恢复主拖动条的正常样式
+    mainResizer.style.display = '';
+    mainResizer.style.visibility = '';
+    mainResizer.style.opacity = '';
+    mainResizer.style.pointerEvents = '';
+    mainResizer.style.height = '';
+    mainResizer.style.zIndex = '100';
+  }
+}, 10);
+
   }, 100);
 }
 
@@ -1239,6 +1226,30 @@ function processMathFormulas(content) {
   return processedContent;
 }
 
+// OCR识别结果处理
+const ocrText = ref('');
+function replacePageContent(text) {
+  ocrText.value = text;
+}
+
+// 动态显示内容：有ocrText优先，无则用原有内容
+// const displayContent = computed(() => {
+//   return ocrText.value ? ocrText.value.replace(/\n/g, '<br>') : getCurrentPageContent()
+// })
+
+// 假设原有内容函数
+function getCurrentPageContent() {
+  // 这里用原有变量/方法获取当前页面内容
+  // 例如 return marked(bookPages.value[currentPageIndex.value] || '')
+  return marked(bookPages.value[currentPageIndex.value] || '')
+}
+
+// 暴露给全局，以便Sidebar组件调用
+if (typeof window !== 'undefined') {
+  window.bookPanelInstance = {
+    handleOcrResult
+  };
+}
 </script>
 
 <style scoped>
@@ -1261,20 +1272,14 @@ function processMathFormulas(content) {
 
 .book-content-wrapper {
   flex-grow: 1;
-  overflow: hidden;
   position: relative;
-}
-
-.book {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  overflow: visible; /* 修改为visible */
 }
 
 .book-content {
   flex-grow: 1;
   position: relative;
-  overflow: hidden;
+  overflow: visible; /* 修改为visible */
 }
 
 .page {
@@ -1301,50 +1306,6 @@ function processMathFormulas(content) {
   z-index: 10;
   position: relative; /* 确保定位正确 */
   margin-top: 0 !important; /* 消除和拖动条的间隙 */
-}
-
-.dark .book-footer {
-  background-color: #1f2937;
-  border-top-color: #374151;
-}
-
-/* 添加连接内容区和底部导航的样式 */
-.book-content-wrapper {
-  margin-bottom: 0 !important;
-  padding-bottom: 0 !important;
-  border-bottom: none !important;
-}
-
-/* 移除底部灰色拖动条的专用样式 */
-.book-content-wrapper + div:not(#resizer):not(.resizer):not(.book-footer):not(.card):not(.panel-container):not(.side-notes-panel),
-.book-content-wrapper ~ div:not(#resizer):not(.resizer):not(.book-content):not(.book-footer):not(.card):not(.panel-container):not(.side-notes-panel)[style*="cursor: col-resize"],
-.book-content-wrapper ~ div:not(#resizer):not(.resizer):not(.book-content):not(.book-footer):not(.card):not(.panel-container):not(.side-notes-panel)[style*="height: 6px"],
-.book-content-wrapper ~ div:not(#resizer):not(.resizer):not(.book-content):not(.book-footer):not(.card):not(.panel-container):not(.side-notes-panel)[style*="height:6px"] {
-  display: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  z-index: -999 !important;
-  height: 0 !important;
-  width: 0 !important;
-  min-height: 0 !important;
-  min-width: 0 !important;
-  max-height: 0 !important;
-  max-width: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  visibility: hidden !important;
-  overflow: hidden !important;
-}
-
-.book-footer {
-  border-top: 1px solid #e5e7eb;
-  padding: 8px 0;
-  margin-top: 0;
-  background-color: #fff;
-  z-index: 10;
 }
 
 .dark .book-footer {

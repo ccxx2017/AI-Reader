@@ -8,18 +8,21 @@
     
     <!-- 主内容区域 -->
     <div class="container mx-auto px-4 py-6 main-content-container">
-      <div class="main-content">
+      <div class="main-content flex">
         <!-- 左侧边栏 - 系统状态 -->
         <Sidebar />
         
-        <!-- 中间 - 书籍显示 -->
-        <BookPanel />
-        
-        <!-- 可调整大小的分隔线 - 只在大屏幕上可见 -->
-        <div id="resizer" class="resizer my-2 lg:my-0 lg:h-full"></div>
-        
-        <!-- 右侧 - AI助手聊天 -->
-        <ChatPanel />
+        <!-- 中间和右侧区域容器 -->
+        <div class="flex flex-1 min-w-0">
+          <!-- 中间 - 书籍显示 -->
+          <BookPanel />
+          
+          <!-- 可调整大小的分隔线 -->
+          <div id="resizer" class="resizer w-2 bg-gray-200 hover:bg-blue-500 cursor-col-resize"></div>
+          
+          <!-- 右侧 - AI助手聊天 -->
+          <ChatPanel />
+        </div>
       </div>
     </div>
   </div>
@@ -49,11 +52,14 @@ provide('sidebarState', isSidebarCollapsed);
 
 // 初始化应用
 onMounted(() => {
-  // 设置面板初始宽度
-  setInitialPanelWidths();
+  console.log('App组件已挂载');
   
-  // 初始化拖拽分隔线
-  initResizer();
+  // 延迟初始化以确保DOM元素已完全渲染
+  setTimeout(() => {
+    console.log('开始初始化面板宽度和拖动条');
+    setInitialPanelWidths();
+    initResizer();
+  }, 500);
   
   // 响应设备类型
   checkDeviceAndAdjustLayout();
@@ -151,89 +157,102 @@ function checkDeviceAndAdjustLayout() {
   }
 }
 
-// 初始化拖拽分隔线
+// 新的拖动条实现
 function initResizer() {
+  console.log('初始化拖动条...');
   const resizer = document.querySelector('#resizer');
-  if (!resizer) return;
+  const leftPanel = document.querySelector('#book-panel');
+  const rightPanel = document.querySelector('#chat-panel');
   
-  let isResizing = false;
-  let lastX = 0;
+  if (!resizer) console.error('拖动条元素不存在');
+  if (!leftPanel) console.error('左侧面板元素不存在');
+  if (!rightPanel) console.error('右侧面板元素不存在');
   
-  // 鼠标按下事件
-  resizer.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    lastX = e.clientX;
-    resizer.classList.add('active');
-    document.body.style.cursor = 'col-resize';
-    
-    // 防止选择文本
-    document.addEventListener('selectstart', preventSelection);
-  });
-  
-  // 鼠标移动事件
-  document.addEventListener('mousemove', (e) => {
-    if (!isResizing) return;
-    
-    const deltaX = e.clientX - lastX;
-    lastX = e.clientX;
-    
-    // 获取面板元素
-    const bookPanel = document.querySelector('#book-panel');
-    const chatPanel = document.querySelector('#chat-panel');
-    
-    if (!bookPanel || !chatPanel) return;
-    
-    // 计算新的宽度
-    const currentBookWidth = parseInt(bookPanel.style.width) || bookPanel.offsetWidth;
-    const currentChatWidth = parseInt(chatPanel.style.width) || chatPanel.offsetWidth;
-    
-    // 设置新宽度，确保不小于最小宽度
-    const minWidth = 200; // 最小宽度
-    const maxChatWidth = window.innerWidth - minWidth - 50; // 聊天面板最大宽度（留出左侧和分隔线空间）
-    
-    // 向右拖动（增加书籍面板宽度）
-    if (deltaX > 0) {
-      // 如果聊天面板已经达到最小宽度，不再增加书籍面板宽度
-      if (currentChatWidth <= minWidth) return;
-      
-      const newBookWidth = Math.max(currentBookWidth + deltaX, minWidth);
-      const newChatWidth = Math.max(currentChatWidth - deltaX, minWidth);
-      
-      // 应用新宽度
-      bookPanel.style.width = `${newBookWidth}px`;
-      chatPanel.style.width = `${newChatWidth}px`;
-    } 
-    // 向左拖动（减少书籍面板宽度）
-    else if (deltaX < 0) {
-      // 如果书籍面板已经达到最小宽度，不再减少
-      if (currentBookWidth <= minWidth) return;
-      
-      const newBookWidth = Math.max(currentBookWidth + deltaX, minWidth);
-      const newChatWidth = Math.min(currentChatWidth - deltaX, maxChatWidth);
-      
-      // 应用新宽度
-      bookPanel.style.width = `${newBookWidth}px`;
-      chatPanel.style.width = `${newChatWidth}px`;
-    }
-  });
-  
-  // 鼠标松开事件 - 停止调整大小
-  document.addEventListener('mouseup', () => {
-    if (isResizing) {
-      isResizing = false;
-      resizer.classList.remove('active');
-      document.body.style.cursor = '';
-      
-      // 移除防止选择的事件监听器
-      document.removeEventListener('selectstart', preventSelection);
-    }
-  });
-  
-  // 防止在拖拽时选择文本
-  function preventSelection(e) {
-    e.preventDefault();
-    return false;
+  if (!resizer || !leftPanel || !rightPanel) {
+    console.error('拖动条初始化失败: 缺少必要元素');
+    return;
   }
+  
+  console.log('找到所有必要元素，继续初始化拖动条');
+  
+  // 添加数据属性标识这是主拖动条
+  resizer.setAttribute('data-main-resizer', 'true');
+  
+  // 确保拖动条可见并有足够的宽度便于用户抓取
+  resizer.style.opacity = '1';
+  resizer.style.width = '8px';
+  resizer.style.zIndex = '100';
+  resizer.style.backgroundColor = '#e5e7eb';
+  
+  console.log('设置拖动条样式完成');
+  
+  const handleMouseDown = (e) => {
+    console.log('拖动条鼠标按下事件触发');
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    
+    const startX = e.clientX;
+    const leftWidth = leftPanel.getBoundingClientRect().width;
+    const rightWidth = rightPanel.getBoundingClientRect().width;
+    const totalWidth = leftWidth + rightWidth;
+    
+    console.log(`开始拖动: 左宽=${leftWidth}px, 右宽=${rightWidth}px, 总宽=${totalWidth}px`);
+    
+    const onMouseMove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      // 确保最小宽度，防止面板变得太小
+      const newLeftWidth = Math.max(300, Math.min(totalWidth - 300, leftWidth + dx));
+      const newRightWidth = totalWidth - newLeftWidth;
+      
+      leftPanel.style.width = `${newLeftWidth}px`;
+      rightPanel.style.width = `${newRightWidth}px`;
+      
+      // 添加拖动状态类来提高视觉反馈
+      resizer.classList.add('resizer-active');
+      
+      // 每100px移动记录一次日志
+      if (Math.abs(dx) % 100 < 5) {
+        console.log(`拖动中: 左宽=${newLeftWidth}px, 右宽=${newRightWidth}px, 位移=${dx}px`);
+      }
+    };
+    
+    const onMouseUp = () => {
+      console.log('拖动结束');
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      resizer.classList.remove('resizer-active');
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+  
+  // 移除所有现有事件监听器后重新添加
+  const oldResizer = resizer;
+  const newResizer = resizer.cloneNode(true);
+  oldResizer.parentNode.replaceChild(newResizer, oldResizer);
+  
+  console.log('已克隆并替换拖动条元素，准备添加事件监听器');
+  
+  // 添加事件监听器
+  newResizer.addEventListener('mousedown', handleMouseDown);
+  
+  // 添加悬停和活动状态的视觉提示
+  newResizer.addEventListener('mouseover', () => {
+    newResizer.style.backgroundColor = '#3b82f6';
+  });
+  
+  newResizer.addEventListener('mouseleave', () => {
+    if (!newResizer.classList.contains('resizer-active')) {
+      newResizer.style.backgroundColor = '#e5e7eb';
+    }
+  });
+  
+  console.log('拖动条初始化完成');
 }
 </script>
 
@@ -247,17 +266,37 @@ function initResizer() {
 .main-content {
   display: flex;
   height: 100%;
-  width: 100%;
 }
 
+.panel-container {
+  position: relative;
+  transition: width 0.3s ease;
+}
+
+.panel-container-transition {
+  transition: width 0.3s ease, margin 0.3s ease;
+}
+
+/* 修复拖动条样式 */
 .resizer {
   width: 8px;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: #e5e7eb;
   cursor: col-resize;
-  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+  z-index: 10;
+  opacity: 1;
+  margin: 0 -3px;
 }
 
-:root.dark .resizer {
-  background-color: rgba(255, 255, 255, 0.05);
+.resizer:hover, .resizer-active {
+  background-color: #3b82f6;
+}
+
+.dark .resizer {
+  background-color: #374151;
+}
+
+.dark .resizer:hover, .dark .resizer-active {
+  background-color: #3b82f6;
 }
 </style>

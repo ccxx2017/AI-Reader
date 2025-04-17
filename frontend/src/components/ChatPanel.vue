@@ -1,6 +1,6 @@
 <template>
   <!-- 右侧AI助手聊天面板 -->
-  <div id="chat-panel" class="panel-container panel-container-transition w-2/5 min-w-[300px]">
+  <div id="chat-panel" class="panel-container flex-1 min-w-[300px] overflow-hidden">
     <div class="card h-full overflow-hidden flex flex-col">
       <!-- 顶部控制栏 -->
       <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
