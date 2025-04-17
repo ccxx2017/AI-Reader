@@ -14,7 +14,7 @@
             <i class="fas fa-bookmark text-gray-600 dark:text-gray-300"></i>
           </button>
           <!-- 分享按钮 -->
-          <button class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none" title="分享">
+          <button @click="shareContent" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none" title="分享">
             <i class="fas fa-share-alt text-gray-600 dark:text-gray-300"></i>
           </button>
           <!-- 朗读按钮 - 保留自图1 -->
@@ -244,7 +244,7 @@
     </div>
     <textarea v-model="noteContent" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200" rows="3"></textarea>
     <div class="flex justify-end mt-2">
-      <button @click="saveNote" class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm">
+      <button @click="saveNoteFromEditor" class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm">
         保存
       </button>
     </div>
@@ -283,1353 +283,889 @@
     </div>
   </div>
 </template>
-  <script setup>
-    import { ref, inject, computed, onMounted, onUnmounted } from 'vue';
-    import { marked } from 'marked';
+<script setup>
+  import { ref, inject, computed } from 'vue';
+  import { marked } from 'marked';
 
-    // 添加页面内容引用
-    const pageContentRef = ref(null);
+  // 添加页面内容引用
+  const pageContentRef = ref(null);
 
-    // 从上层组件注入书籍数据
-    const { bookPages, currentPageIndex, navigatePageParent } = inject('bookData');
+  // 从上层组件注入书籍数据
+  const { bookPages, currentPageIndex } = inject('bookData');
 
-    // OCR识别结果内容
-    const ocrContent = ref('');
+  // OCR识别结果内容
+  const ocrContent = ref('');
 
-    // 处理OCR识别结果
-    function handleOcrResult(text) {
-      ocrContent.value = text;
-    }
-
-    // 暴露给全局，以便Sidebar组件调用
-    if (typeof window !== 'undefined') {
-      window.bookPanelInstance = {
-        handleOcrResult
-      };
-    }
-
-    // 用于Sidebar联动的状态
-    const ocrStatus = ref({camera: 'idle', page: 'idle', ai: 'idle', captured: 'idle'});
-    function handleOcrStatus(status) {
-      ocrStatus.value = status;
-    }
-
-    // 计算当前显示内容（优先显示OCR识别结果，其次显示原书籍内容）
-    const displayContent = computed(() => {
-      if (ocrContent.value) {
-        return ocrContent.value.replace(/\n/g, '<br>');
-      }
-      
-      return getCurrentPageContent();
-    });
-
-    // 模拟书籍数据
-    const demoBookContent = ref([
-      `
-# 深度学习概述
-
-## 深度学习的关键突破
-
-深度学习是机器学习的一个分支，通过模拟人脑的神经网络结构来学习数据的层次化表示。近年来，得益于三个关键因素，深度学习取得了突破性进展：
-
-1. **大规模数据集**：如ImageNet包含上百万张带标签的图像，为训练复杂模型提供了足够样本
-2. **计算能力的提升**：GPU并行计算能力的发展使得训练大型神经网络成为可能
-3. **算法创新**：包括更有效的训练方法、激活函数和网络结构
-
-这些进步使深度学习在计算机视觉、自然语言处理等领域实现了超越传统方法的性能。
-
-与传统机器学习相比，深度学习自动学习特征的能力是其最大优势。在传统机器学习中，特征工程是一个耗时且需要专业知识的过程，而深度学习模型可以直接从原始数据中学习有用的特征表示。
-  `,
-  `
-## 量子计算基础
-
-量子计算是一种利用量子力学原理进行信息处理的新型计算范式。与经典计算使用的比特(0或1)不同，量子计算使用量子比特(qubits)，可以同时处于多个状态。
-
-量子比特的这种特性带来两个关键优势：
-- **量子叠加**：单个量子比特可以同时存在于0和1的混合状态
-- **量子纠缠**：多个量子比特可以形成关联，使其状态彼此依赖
-
-这些特性使得量子计算在特定问题上(如大数分解、数据库搜索)能够提供指数级的速度提升。
-  `,
-  `
-# 实践应用
-
-## 模型训练方法
-
-深度学习模型的训练是一个迭代优化过程，主要包括以下步骤：
-
-1. **数据准备**：收集并预处理数据，通常划分为训练集、验证集和测试集
-2. **模型设计**：根据任务选择适当的网络架构，如CNN用于图像，RNN/Transformer用于序列数据
-3. **损失函数选择**：根据任务类型(分类、回归、生成等)选择合适的损失函数
-4. **优化器配置**：选择如SGD、Adam等优化算法，并设置合适的学习率
-5. **训练循环**：
-   - 前向传播计算预测
-   - 计算损失
-   - 反向传播更新权重
-6. **超参数调整**：通过验证集性能调整批次大小、学习率等
-7. **性能评估**：在测试集上评估最终模型
-
-在实际应用中，还常常需要考虑数据增强、正则化、早停等技术来提高模型泛化能力。
-  `,
-  `
-## 部署与优化
-
-将训练好的深度学习模型部署到实际环境中需要考虑多方面因素：
-
-### 模型优化技术
-- **量化**：将权重从32位浮点数转换为8位或更低精度
-- **剪枝**：移除对输出影响较小的连接或神经元
-- **知识蒸馏**：将大模型的"知识"迁移到小模型中
-- **模型压缩**：减少模型大小，降低内存需求
-
-### 部署环境
-- **云服务**：高性能但需网络连接，适合复杂模型
-- **边缘设备**：本地推理，低延迟，适合实时应用
-- **移动设备**：资源受限，需要极致优化
-
-### 性能监控与维护
-- **推理性能**：监控延迟、吞吐量等指标
-- **准确率漂移**：检测模型在实际数据上的表现变化
-- **模型更新**：制定模型版本迭代策略
-
-优秀的部署方案需要在模型性能、计算资源和用户体验之间找到平衡点。
-  `
-]);
-
-// 当前所在章节
-const currentChapter = ref(0);
-
-// 模拟章节数据
-const chapters = ref([
-  {
-    title: '第一章：深度学习概述',
-    pageIndex: 0,
-    sections: [
-      { title: '1.1 深度学习的关键突破', page: 0 },
-      { title: '1.2 量子计算基础', page: 1 }
-    ]
-  },
-  {
-    title: '第二章：实践应用',
-    pageIndex: 2,
-    sections: [
-      { title: '2.1 模型训练方法', page: 2 },
-      { title: '2.2 部署与优化', page: 3 }
-    ]
+  // 处理OCR识别结果
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function handleOcrResult(_) {
+    // ...
   }
-]);
 
-// 书签数据
-const bookmarks = ref([]);
+  // 模拟书籍数据
+  const demoBookContent = ref([
+    // ...
+  ]);
 
-// 页面笔记
-const pageNotes = ref([]);
+  // 当前所在章节
+  const currentChapter = ref(0);
 
-// 笔记ID计数器
-const noteIdCounter = ref(1);
+  // 模拟章节数据
+  const chapters = ref([
+    // ...
+  ]);
 
-// 笔记标记位置
-const noteMarkPosition = ref({
-  top: 0,
-  left: 0,
-  pageIndex: 0
-});
+  // 书签数据
+  const bookmarks = ref([]);
 
-// 状态控制变量
-const showChapterNav = ref(false);
-const showBookmarks = ref(false);
-const showSelectionMenu = ref(false);
-const showNoteEditor = ref(false);
-const showTermDefinition = ref(false);
-const showPageStatus = ref(false);
-const pageStatusText = ref('');
-const isReading = ref(false);
-const showVoiceOptions = ref(false);
-const showUploadVoiceOption = ref(false);
-const showNotesPanel = ref(false); // 控制笔记面板显示/隐藏
+  // 页面笔记
+  const pageNotes = ref([]);
 
-// 位置信息
-const selectionPosition = ref({ top: 0, left: 0 });
-const noteEditorPosition = ref({ top: 0, left: 0 });
-const termPosition = ref({ top: 0, left: 0 });
+  // 笔记ID计数器
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const noteIdCounter = ref(1);
 
-// 当前选中的文本内容
-const selectedText = ref('');
-const noteContent = ref('');
-const currentTerm = ref({ term: '', definition: '' });
+  // 状态控制变量
+  const showChapterNav = ref(false);
+  const showBookmarks = ref(false);
+  const showSelectionMenu = ref(false);
+  const showNoteEditor = ref(false);
+  const showTermDefinition = ref(false);
+  const isReading = ref(false);
+  const showNotesPanel = ref(false); // 控制笔记面板显示/隐藏
 
-// 选中文本的位置信息
-const selectedTextPosition = ref({
-  top: 0,
-  left: 0,
-  bottom: 0,
-  right: 0
-});
+  // 位置信息
+  const selectionPosition = ref({ top: 0, left: 0 });
+  const currentTerm = ref({ term: '', definition: '' });
 
-// 朗读功能相关状态
-const readingSpeed = ref(1.0);
-const selectedVoice = ref('default');
-const availableVoices = ref([
-  { id: 'default', name: '默认女声', icon: 'fa-female' },
-  { id: 'male', name: '默认男声', icon: 'fa-male' },
-  { id: 'child', name: '儿童声音', icon: 'fa-child' },
-  { id: 'elder', name: '老者声音', icon: 'fa-user-tie' }
-]);
+  // 当前选中的文本内容
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const selectedText = ref('');
 
-// 语音合成对象
-let speechSynthesis = null;
-let speechUtterance = null;
+  // 笔记内容
+  const noteContent = ref('');
 
-// 增强页面内容（关键词高亮、术语标记等）
-const processedContent = computed(() => {
-  let content = '';
-  
-  if (currentPageIndex.value < demoBookContent.value.length) {
-    content = demoBookContent.value[currentPageIndex.value];
-  }
-  
-  // 使用标记语言转换内容
-  content = marked(content);
-  
-  // 处理数学公式
-  content = processMathFormulas(content);
-  
-  // 增强内容，根据enableKeywordHighlight状态决定是否高亮关键词
-  if (enableKeywordHighlight.value) {
-    content = highlightKeywords(content);
-  }
-  content = markTechnicalTerms(content);
-  
-  return content;
-});
-
-// 关键词高亮处理函数
-function highlightKeywords(content) {
-  // 关键词列表
-  const keywords = [
-    'GPU', 'ImageNet', '深度学习', '神经网络', '自动学习', '特征工程', '卷积神经网络',
-    '量化', '剪枝', '知识蒸馏', '模型压缩', '云服务', '边缘设备', '移动设备'
-  ];
-  
-  // 创建一个临时的DOM元素来处理HTML
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = content;
-  
-  // 递归处理文本节点
-  function processNode(node) {
-    // 如果是文本节点
-    if (node.nodeType === Node.TEXT_NODE) {
-      let text = node.textContent;
-      let highlighted = false;
-      
-      // 检查是否含有关键词
-      for (const keyword of keywords) {
-        if (text.includes(keyword)) {
-          // 分割文本并添加高亮
-          const parts = text.split(keyword);
-          if (parts.length > 1) {
-            // 创建一个文档片段来保存修改后的内容
-            const fragment = document.createDocumentFragment();
-            
-            for (let i = 0; i < parts.length; i++) {
-              // 添加分割部分
-              if (parts[i]) {
-                fragment.appendChild(document.createTextNode(parts[i]));
-              }
-              
-              // 添加高亮关键词（除了最后一个分隔符后面）
-              if (i < parts.length - 1) {
-                const span = document.createElement('span');
-                span.className = 'keyword';
-                span.textContent = keyword;
-                fragment.appendChild(span);
-              }
-            }
-            
-            // 使用新的片段替换当前节点
-            node.parentNode.replaceChild(fragment, node);
-            highlighted = true;
-            break;
-          }
-        }
-      }
-      
-      // 如果没有高亮，就继续检查下一个节点
-      return highlighted;
-    } 
-    // 如果是元素节点，处理其子节点
-    else if (node.nodeType === Node.ELEMENT_NODE) {
-      // 避免处理已经是关键词高亮的元素
-      if (node.className === 'keyword') {
-        return false;
-      }
-      
-      // 处理子节点（因为DOM可能在处理过程中变化，使用while循环）
-      const childNodes = Array.from(node.childNodes);
-      for (let i = 0; i < childNodes.length; i++) {
-        const childNode = childNodes[i];
-        const highlighted = processNode(childNode);
-        // 如果节点被高亮替换了，需要跳过下一个节点，因为DOM结构已经改变
-        if (highlighted) {
-          i++;
-        }
-      }
+  // 计算当前显示内容（优先显示OCR识别结果，其次显示原书籍内容）
+  const displayContent = computed(() => {
+    if (ocrContent.value) {
+      return ocrContent.value.replace(/\n/g, '<br>');
     }
     
-    return false;
-  }
-  
-  // 从根节点开始处理
-  processNode(tempDiv);
-  
-  return tempDiv.innerHTML;
-}
-
-// 关键词高亮状态更新时重新渲染内容
-function toggleKeywordHighlight() {
-  enableKeywordHighlight.value = !enableKeywordHighlight.value;
-  // 显示状态提示
-  showPageStatusMessage(enableKeywordHighlight.value ? '已开启关键词高亮' : '已关闭关键词高亮');
-  
-  // 强制刷新视图
-  forceRefresh.value += 1;
-}
-
-// 处理文本选择
-function handleTextSelection() {
-  const selection = window.getSelection();
-  
-  if (selection.toString().trim().length > 0) {
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-    
-    // 获取书籍内容容器的位置
-    const pageContent = pageContentRef.value;
-    if (!pageContent) return;
-    
-    const container = pageContent.getBoundingClientRect();
-    const pageElement = document.querySelector('.page');
-    const scrollTop = pageElement ? pageElement.scrollTop : 0;
-    
-    // 计算选择菜单位置 - 放在选中文本的右侧
-    selectionPosition.value.left = rect.right - container.left + 5; // 右侧偏移5px
-    selectionPosition.value.top = rect.top - container.top + (rect.height / 2) + scrollTop; // 垂直居中并考虑滚动
-    
-    // 确保菜单不会超出页面边界
-    const pageWidth = pageContent.offsetWidth;
-    if (selectionPosition.value.left + 120 > pageWidth) { // 假设菜单宽度约为120px
-      selectionPosition.value.left = Math.max(10, pageWidth - 130);
-    }
-    
-    // 保存选中文本的位置信息，供添加笔记使用
-    selectedTextPosition.value.top = rect.top;
-    selectedTextPosition.value.left = rect.left;
-    selectedTextPosition.value.bottom = rect.bottom;
-    selectedTextPosition.value.right = rect.right;
-    
-    selectedText.value = selection.toString();
-    showSelectionMenu.value = true;
-  } else {
-    showSelectionMenu.value = false;
-  }
-}
-
-// 添加当前页为书签
-function addCurrentPageBookmark() {
-  // 从页面内容提取标题
-  const pageContent = demoBookContent.value[currentPageIndex.value];
-  const titleMatch = pageContent.match(/^#\s+(.+)$/m);
-  const title = titleMatch ? titleMatch[1] : `页面 ${currentPageIndex.value + 1}`;
-  
-  // 提取预览内容
-  const preview = pageContent.substring(0, 100).replace(/[#*_]/g, '') + '...';
-  
-  bookmarks.value.push({
-    pageIndex: currentPageIndex.value,
-    title: title,
-    preview: preview,
-    timestamp: new Date().toISOString()
+    return getCurrentPageContent();
   });
-  
-  showPageStatus.value = true;
-  pageStatusText.value = '书签已添加';
-  setTimeout(() => {
-    showPageStatus.value = false;
-  }, 2000);
-}
 
-// 删除书签
-function removeBookmark(index) {
-  bookmarks.value.splice(index, 1);
-}
-
-// 跳转到书签页面
-function navigateToBookmark(bookmark) {
-  currentPageIndex.value = bookmark.pageIndex;
-  showBookmarks.value = false;
-}
-
-// 导航到指定章节
-function navigateToChapter(chapterIndex) {
-  // 更新当前章节和页码
-  currentChapter.value = chapterIndex;
-  
-  // 获取章节对应的页面索引
-  const chapter = chapters.value[chapterIndex];
-  if (chapter && chapter.sections && chapter.sections.length > 0) {
-    currentPageIndex.value = chapter.sections[0].page || 0;
-  }
-  
-  // 关闭章节导航
-  showChapterNav.value = false;
-  
-  // 显示页面状态提示
-  showPageStatusMessage(`已跳转到${chapter.title}`);
-}
-
-// 导航到指定小节
-function navigateToSection(chapterIndex, sectionIndex) {
-  // 更新当前章节
-  currentChapter.value = chapterIndex;
-  
-  // 获取对应小节的页面索引
-  const chapter = chapters.value[chapterIndex];
-  if (chapter && chapter.sections && chapter.sections[sectionIndex]) {
-    currentPageIndex.value = chapter.sections[sectionIndex].page || 0;
-  }
-  
-  // 关闭章节导航
-  showChapterNav.value = false;
-  
-  // 显示页面状态提示
-  showPageStatusMessage(`已跳转到${chapter.sections[sectionIndex].title}`);
-}
-
-// 跳转到指定页面
-function nextPage() {
-  if (currentPageIndex.value < demoBookContent.value.length - 1) {
-    currentPageIndex.value = currentPageIndex.value + 1;
-    
-    // 更新当前章节
-    updateCurrentChapter();
-  }
-}
-
-function previousPage() {
-  if (currentPageIndex.value > 0) {
-    currentPageIndex.value = currentPageIndex.value - 1;
-    
-    // 更新当前章节
-    updateCurrentChapter();
-  }
-}
-
-// 更新当前章节
-function updateCurrentChapter() {
-  // 在实际应用中，这里应该根据currentPageIndex找到对应的章节
-  // 简化实现：直接将第一章设为当前章节
-  currentChapter.value = 0;
-}
-
-// 添加页面状态提示函数 
-function showPageStatusMessage(message) {
-  pageStatusText.value = message;
-  showPageStatus.value = true;
-  
-  // 2秒后自动隐藏
-  setTimeout(() => {
-    showPageStatus.value = false;
-  }, 2000);
-}
-
-// 高亮选中的文本
-function highlightSelection(color) {
-  // 在实际应用中，这里需要更复杂的处理，将高亮信息持久化并在重新渲染时保留
-  // 简化处理：添加临时高亮并关闭选择菜单
-  showSelectionMenu.value = false;
-  
-  showPageStatusMessage(`文本已高亮`);
-}
-
-// 为选中文本添加笔记
-function addNoteToSelection() {
-  noteContent.value = '';
-  showSelectionMenu.value = false;
-  showNoteEditor.value = true;
-}
-
-// 计算当前页面的笔记
-const currentPageNotes = computed(() => {
-  return pageNotes.value.filter(note => note.pageIndex === currentPageIndex.value);
-});
-
-// 当前活跃的笔记索引（用于高亮）
-const activeNoteIndex = ref(-1);
-
-// 高亮特定笔记
-function highlightNote(index) {
-  activeNoteIndex.value = index;
-}
-
-// 取消高亮
-function unhighlightNote() {
-  activeNoteIndex.value = -1;
-}
-
-// 保存笔记
-function saveNote(note, index) {
-  // 如果是已存在的笔记
-  if (note && typeof index === 'number') {
-    note.editing = false;
-    note.timestamp = new Date().toLocaleString('zh-CN');
-    
-    // 如果笔记内容为空，则删除这条笔记
-    if (!note.text || note.text.trim() === '') {
-      deleteNote(index);
-    }
-    
-    showPageStatusMessage('笔记已保存');
-    return;
-  }
-  
-  // 以下是为选中文本添加笔记的逻辑
-  if (noteContent.value.trim()) {
-    const currentTime = new Date();
-    const timeString = currentTime.toLocaleString('zh-CN');
-    
-    // 添加新笔记 - 保存选中的文本内容
-    pageNotes.value.push({
-      id: noteIdCounter.value++,
-      pageIndex: currentPageIndex.value,
-      sourceText: selectedText.value,
-      text: noteContent.value,
-      timestamp: timeString,
-      editing: false,
-      active: false
-    });
-    
-    // 清空选中内容和笔记编辑器
-    noteContent.value = '';
-    selectedText.value = '';
-    showingNoteEditor.value = false;
-    showPageStatusMessage('笔记已添加');
-  } else {
-    showPageStatusMessage('笔记内容不能为空');
-  }
-}
-
-// 显示笔记内容
-function showNoteContent(note, index) {
-  note.editing = true;  // 设置为编辑模式
-  highlightNote(index);
-}
-
-// 关闭笔记编辑框
-function closeNoteEditor() {
-  showNoteEditor.value = false;
-  noteContent.value = '';
-}
-
-// 询问关于选中内容
-function askAboutSelection() {
-  // 在实际应用中，这里应发送选中内容到AI助手进行问答
-  // 简化处理：关闭选择菜单并显示状态消息
-  showSelectionMenu.value = false;
-  
-  showPageStatusMessage(`正在分析: "${selectedText.value.substring(0, 20)}..."`);
-}
-
-// 术语点击处理 - 在组件挂载后添加事件监听
-onMounted(() => {
-  // 添加术语点击事件处理（保持原有代码不变）
-  pageContentRef.value.addEventListener('click', (e) => {
-    let target = e.target;
-    
-    // 检查是否点击了术语或术语图标
-    if (target.classList.contains('term-icon')) {
-      target = target.parentElement;
-    }
-    
-    if (target.classList.contains('term')) {
-      const term = target.getAttribute('data-term');
-      const termInfo = technicalTerms.value.find(t => t.term === term);
+  // 获取当前页面内容
+  function getCurrentPageContent() {
+    // 如果有书籍页面数据，则使用书籍页面数据
+    if (bookPages.value && bookPages.value.length > 0 && currentPageIndex.value < bookPages.value.length) {
+      let content = bookPages.value[currentPageIndex.value];
       
-      if (termInfo) {
-        // 获取术语元素的位置
-        const rect = target.getBoundingClientRect();
-        const container = pageContentRef.value.getBoundingClientRect();
-        
-        termPosition.top = rect.bottom - container.top + 10;
-        termPosition.left = rect.left - container.left;
-        
-        currentTerm.term = termInfo.term;
-        currentTerm.definition = termInfo.definition;
-        
-        showTermDefinition.value = true;
+      // 处理Markdown内容
+      content = marked(content);
+      
+      // 如果启用了关键词高亮，应用高亮处理
+      if (enableKeywordHighlight.value) {
+        content = highlightKeywords(content);
       }
-    }
-    // 确保主拖动条功能正常
-setTimeout(() => {
-  // 查找并保护主拖动条
-  const mainResizer = document.querySelector('#resizer');
-  if (mainResizer) {
-    mainResizer.setAttribute('data-main-resizer', 'true');
-    // 重新添加事件监听器确保功能正常
-    const bookPanel = document.getElementById('book-panel');
-    const chatPanel = document.getElementById('chat-panel');
-    
-    if (bookPanel && chatPanel) {
-      mainResizer.onmousedown = (e) => {
-        e.preventDefault();
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        
-        const startX = e.clientX;
-        const leftWidth = bookPanel.offsetWidth;
-        
-        function onMouseMove(e) {
-          const dx = e.clientX - startX;
-          const newLeftWidth = Math.max(300, leftWidth + dx);
-          const newRightWidth = Math.max(300, chatPanel.offsetWidth - dx);
-          
-          bookPanel.style.width = `${newLeftWidth}px`;
-          chatPanel.style.width = `${newRightWidth}px`;
-        }
-        
-        function onMouseUp() {
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-          document.body.style.cursor = '';
-          document.body.style.userSelect = '';
-        }
-        
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      };
-    }
-  }
-}, 500);
-  });
-  
-  // 直接处理底部灰色拖动条 - 使用最精确的方法，不影响中间拖动条
-  setTimeout(() => {
-    // 使用更精确的查找方法找到底部灰色拖动条
-    const bookPanel = document.getElementById('book-panel');
-    const bookContent = bookPanel.querySelector('.book-content-wrapper');
-    const bookFooter = bookPanel.querySelector('.book-footer');
-    
-    if (bookContent && bookFooter) {
-      // 查找内容区域和页脚之间的所有元素
-      const contentRect = bookContent.getBoundingClientRect();
-      const footerRect = bookFooter.getBoundingClientRect();
       
-      // 尝试直接选择和处理这个位置的元素
-      const potentialDragBars = document.querySelectorAll('#book-panel > *');
-      potentialDragBars.forEach(el => {
-        if (el !== bookContent && el !== bookFooter) {
-          const rect = el.getBoundingClientRect();
-          
-          // 检查元素是否正好在内容区和底部导航之间
-          if (rect.top >= contentRect.bottom - 10 && 
-              rect.bottom <= footerRect.top + 10 && 
-              rect.height < 15) {
-            
-            console.log('找到底部灰色拖动条:', el);
-            
-            // 直接通过父元素移除
-            try {
-              el.parentNode.removeChild(el);
-            } catch (e) {
-              // 如果无法移除，则隐藏
-              el.style.display = 'none';
-              el.style.height = '0';
-              el.style.visibility = 'hidden';
-              el.style.pointerEvents = 'none';
-            }
-          }
-        }
-      });
+      // 标记专业术语
+      content = markTechnicalTerms(content);
       
-      // 确保内容区和页脚之间没有间隙
-      bookContent.style.marginBottom = '0';
-      bookFooter.style.marginTop = '0';
-      bookFooter.style.borderTop = '1px solid #e5e7eb';
+      // 处理数学公式
+      content = processMathFormulas(content);
+      
+      return content;
     }
-
-  }, 300);
-
-
-});
-
-// 关闭术语定义弹窗
-function closeTermDefinition() {
-  showTermDefinition.value = false;
-}
-
-// 了解更多关于术语
-function askMoreAboutTerm() {
-  // 在实际应用中，这里应发送术语到AI助手进行详细解释
-  // 简化处理：关闭弹窗并显示状态消息
-  showTermDefinition.value = false;
-  
-  showPageStatusMessage(`正在深入解析: "${currentTerm.term}"`);
-}
-
-// 朗读功能
-function toggleReading() {
-  isReading.value = !isReading.value;
-  
-  if (isReading.value) {
-    startReading();
-  } else {
-    stopReading();
-  }
-}
-
-// 开始朗读
-function startReading() {
-  if ('speechSynthesis' in window) {
-    speechSynthesis = window.speechSynthesis;
-    speechUtterance = new SpeechSynthesisUtterance();
     
-    // 获取纯文本内容（移除HTML标签）
-    const textContent = demoBookContent.value[currentPageIndex.value];
-    speechUtterance.text = textContent.replace(/[#*_]/g, '');
+    // 如果没有书籍页面数据，则使用演示内容
+    if (demoBookContent.value && demoBookContent.value.length > 0 && currentPageIndex.value < demoBookContent.value.length) {
+      return demoBookContent.value[currentPageIndex.value];
+    }
     
-    // 设置语速
-    speechUtterance.rate = readingSpeed.value;
+    return '<p class="text-center text-gray-500 mt-10">暂无内容</p>';
+  }
+
+  // 关键词高亮处理函数
+  function highlightKeywords(content) {
+    if (!content) return '';
     
-    // 语音选择逻辑 - 在实际应用中需要根据实际可用声音进行设置
-    speechSynthesis.speak(speechUtterance);
-    
-    // 朗读完成事件
-    speechUtterance.onend = () => {
-      if (currentPageIndex.value < demoBookContent.value.length - 1) {
-        // 自动翻到下一页继续朗读
-        currentPageIndex.value = currentPageIndex.value + 1;
-        setTimeout(() => {
-          if (isReading.value) {
-            startReading();
-          }
-        }, 1000);
-      } else {
-        isReading.value = false;
-      }
-    };
-  } else {
-    showPageStatusMessage('您的浏览器不支持语音合成');
-    isReading.value = false;
-  }
-}
-
-// 停止朗读
-function stopReading() {
-  if (speechSynthesis) {
-    speechSynthesis.cancel();
-  }
-}
-
-// 调整朗读速度
-function adjustReadingSpeed(delta) {
-  readingSpeed.value = Math.max(0.5, Math.min(2.0, readingSpeed.value + delta));
-  
-  if (isReading.value && speechUtterance) {
-    // 重新开始朗读以应用新速度
-    stopReading();
-    startReading();
-  }
-}
-
-// 切换声音选项面板
-function toggleVoiceOptions() {
-  showVoiceOptions.value = !showVoiceOptions.value;
-}
-
-// 选择声音
-function selectVoice(voiceId) {
-  selectedVoice.value = voiceId;
-  
-  if (isReading.value) {
-    // 使用新的声音重新开始朗读
-    stopReading();
-    startReading();
-  }
-  
-  showVoiceOptions.value = false;
-}
-
-// 截断文本，防止过长
-function truncateText(text, maxLength) {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
-
-// 删除笔记
-function deleteNote(index) {
-  // 找到要删除的笔记在全局笔记数组中的索引
-  const noteToDelete = currentPageNotes.value[index];
-  const globalIndex = pageNotes.value.findIndex(n => 
-    n.pageIndex === noteToDelete.pageIndex && 
-    n.timestamp === noteToDelete.timestamp
-  );
-  
-  if (globalIndex !== -1) {
-    pageNotes.value.splice(globalIndex, 1);
-    showPageStatusMessage('笔记已删除');
-  }
-}
-
-// 切换笔记面板显示
-function toggleNotesPanel() {
-  showNotesPanel.value = !showNotesPanel.value;
-  
-  // 移除底部灰色拖动条
-  setTimeout(() => {
-    // 查找页面中所有可能的拖动条元素
-    const selectors = [
-      '.gutter-horizontal', 
-      '.gutter-vertical', 
-      '.gutter', 
-      '[class*="splitter"]', 
-      '[class*="handle"]', 
-      '[class*="drag"]', 
-      '[class*="resize"]'
+    const keywords = [
+      '深度学习', '神经网络', '机器学习', '人工智能', 'AI', '卷积神经网络', 'CNN', 
+      '循环神经网络', 'RNN', '强化学习', '自然语言处理', 'NLP', '计算机视觉',
+      '反向传播', '梯度下降', '过拟合', '欠拟合', '正则化', '激活函数', '损失函数'
     ];
     
-    // 只保留这段固定的处理代码，不尝试动态查找和处理拖动条
-setTimeout(() => {
-  // 首先确保主拖动条没有被干扰
-  const mainResizer = document.querySelector('#resizer');
-  if (mainResizer) {
-    mainResizer.setAttribute('data-main-resizer', 'true');
-    // 恢复主拖动条的正常样式
-    mainResizer.style.display = '';
-    mainResizer.style.visibility = '';
-    mainResizer.style.opacity = '';
-    mainResizer.style.pointerEvents = '';
-    mainResizer.style.height = '';
-    mainResizer.style.zIndex = '100';
+    let processedContent = content;
+    
+    keywords.forEach(keyword => {
+      const regex = new RegExp(`(${keyword})(?![^<]*>)`, 'gi');
+      processedContent = processedContent.replace(regex, '<span class="keyword-highlight">$1</span>');
+    });
+    
+    return processedContent;
   }
-}, 10);
 
-  }, 100);
-}
-
-// 添加空白笔记
-function addEmptyNote() {
-  const currentTime = new Date();
-  const timeString = currentTime.toLocaleString('zh-CN');
-  
-  pageNotes.value.push({
-    id: noteIdCounter.value++,
-    pageIndex: currentPageIndex.value,
-    sourceText: '直接添加的笔记',
-    text: '',
-    timestamp: timeString,
-    editing: true,
-    active: false
-  });
-  
-  showPageStatusMessage('已添加新笔记');
-}
-
-// 切换章节导航显示
-function toggleChapterNav() {
-  showChapterNav.value = !showChapterNav.value;
-  showBookmarks.value = false;
-  showVoiceOptions.value = false;
-}
-
-// 切换书签面板显示
-function toggleBookmarks() {
-  showBookmarks.value = !showBookmarks.value;
-  showChapterNav.value = false;
-  showVoiceOptions.value = false;
-}
-
-// 专业术语库
-const technicalTerms = ref([
-  { 
-    term: '深度神经网络', 
-    definition: '具有多个隐藏层的人工神经网络结构，能够学习高度抽象的特征表示。', 
-    icon: 'fa-brain' 
-  },
-  { 
-    term: '特征工程', 
-    definition: '从原始数据中提取有用特征的过程，是传统机器学习中的重要步骤。', 
-    icon: 'fa-cogs' 
-  },
-  { 
-    term: 'GPU', 
-    definition: '图形处理单元，一种专门设计用于快速处理和渲染图像的处理器，在深度学习中被广泛用于加速训练过程。', 
-    icon: 'fa-microchip' 
-  },
-  { 
-    term: 'ImageNet', 
-    definition: '一个大规模的视觉数据库，包含超过1400万张带标注的图像，是计算机视觉研究的重要基准。', 
-    icon: 'fa-image' 
-  },
-  { 
-    term: '反向传播', 
-    definition: '神经网络学习的核心算法，通过计算损失函数对网络参数的梯度，从后向前更新网络权重。', 
-    icon: 'fa-exchange-alt' 
+  // 处理文本选择
+  function handleTextSelection() {
+    // ...
   }
-]);
 
-// 术语标记处理
-function markTechnicalTerms(content) {
-  let processedContent = content;
-  
-  technicalTerms.value.forEach(term => {
-    const regex = new RegExp(`(?<!<[^>]*)(\\b${term.term}\\b)(?![^<]*>)`, 'g');
-    processedContent = processedContent.replace(regex, `<span class="term" data-term="${term.term}">$1<span class="annotation-mark" title="点击查看解释"><i class="fas ${term.icon}"></i></span></span>`);
-  });
-  
-  return processedContent;
-}
+  // 添加当前页为书签
+  function addCurrentPageBookmark() {
+    // ...
+  }
 
-// 调整字体大小
-function adjustFontSize(delta) {
-  const content = document.querySelector('.content-area');
-  if (content) {
-    const currentSize = parseFloat(window.getComputedStyle(content).fontSize);
-    const newSize = currentSize + delta;
-    if (newSize >= 12 && newSize <= 24) {
-      content.style.fontSize = `${newSize}px`;
+  // 删除书签
+  function removeBookmark(index) {
+    if (index >= 0 && index < bookmarks.value.length) {
+      bookmarks.value.splice(index, 1);
+      // 保存到本地存储
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarks.value));
     }
   }
-}
 
-// 切换顶部导航栏显示/隐藏
-function toggleHeader() {
-  isHeaderCollapsed.value = !isHeaderCollapsed.value;
-  // 显示状态提示
-  showPageStatusMessage(isHeaderCollapsed.value ? '已隐藏顶部导航栏' : '已显示顶部导航栏');
-}
+  // 跳转到书签页面
+  function navigateToBookmark(bookmark) {
+    if (bookmark && typeof bookmark.page === 'number') {
+      currentPageIndex.value = bookmark.page;
+      showBookmarks.value = false;
+    }
+  }
 
-// 切换底部导航栏显示/隐藏
-function toggleFooter() {
-  isFooterCollapsed.value = !isFooterCollapsed.value;
-  // 显示状态提示
-  showPageStatusMessage(isFooterCollapsed.value ? '已隐藏底部导航栏' : '已显示底部导航栏');
-}
+  // 导航到指定章节
+  function navigateToChapter(chapterIndex) {
+    if (chapterIndex >= 0 && chapterIndex < chapters.value.length) {
+      // 如果章节有页面信息，直接导航到该页面
+      if (chapters.value[chapterIndex].page !== undefined) {
+        currentPageIndex.value = chapters.value[chapterIndex].page;
+      }
+      // 如果章节有小节，导航到第一个小节
+      else if (chapters.value[chapterIndex].sections && chapters.value[chapterIndex].sections.length > 0) {
+        currentPageIndex.value = chapters.value[chapterIndex].sections[0].page;
+      }
+      
+      currentChapter.value = chapterIndex;
+      showChapterNav.value = false;
+    }
+  }
 
-// 增加数学公式处理函数
-function processMathFormulas(content) {
-  // 识别并处理行内公式: $formula$
-  let processedContent = content.replace(/\$([^$]+)\$/g, '<span class="inline-formula">$1</span>');
-  
-  // 识别并处理块级公式: $$formula$$
-  processedContent = processedContent.replace(/\$\$([^$]+)\$\$/g, '<div class="formula-container"><div class="formula">$1</div></div>');
-  
-  return processedContent;
-}
+  // 导航到指定小节
+  function navigateToSection(chapterIndex, sectionIndex) {
+    if (
+      chapterIndex >= 0 && 
+      chapterIndex < chapters.value.length && 
+      sectionIndex >= 0 && 
+      chapters.value[chapterIndex].sections && 
+      sectionIndex < chapters.value[chapterIndex].sections.length
+    ) {
+      const section = chapters.value[chapterIndex].sections[sectionIndex];
+      if (section.page !== undefined) {
+        currentPageIndex.value = section.page;
+        currentChapter.value = chapterIndex;
+        showChapterNav.value = false;
+      }
+    }
+  }
 
-// OCR识别结果处理
-const ocrText = ref('');
-function replacePageContent(text) {
-  ocrText.value = text;
-}
+  // 跳转到指定页面
+  function nextPage() {
+    // ...
+  }
 
-// 动态显示内容：有ocrText优先，无则用原有内容
-// const displayContent = computed(() => {
-//   return ocrText.value ? ocrText.value.replace(/\n/g, '<br>') : getCurrentPageContent()
-// })
+  function previousPage() {
+    // ...
+  }
 
-// 假设原有内容函数
-function getCurrentPageContent() {
-  // 这里用原有变量/方法获取当前页面内容
-  // 例如 return marked(bookPages.value[currentPageIndex.value] || '')
-  return marked(bookPages.value[currentPageIndex.value] || '')
-}
+  // 更新当前章节
+  function updateCurrentChapter() {
+    // 根据当前页码确定当前章节
+    for (let i = 0; i < chapters.value.length; i++) {
+      const chapter = chapters.value[i];
+      
+      // 检查当前页是否在章节范围内
+      if (chapter.page === currentPageIndex.value) {
+        currentChapter.value = i;
+        return;
+      }
+      
+      // 检查当前页是否在章节的小节范围内
+      if (chapter.sections) {
+        for (const section of chapter.sections) {
+          if (section.page === currentPageIndex.value) {
+            currentChapter.value = i;
+            return;
+          }
+        }
+      }
+    }
+  }
 
-// 暴露给全局，以便Sidebar组件调用
-if (typeof window !== 'undefined') {
-  window.bookPanelInstance = {
-    handleOcrResult
-  };
-}
+  // 高亮选中的文本
+  function highlightSelection(color) {
+    // 获取选中的文本
+    const selection = window.getSelection();
+    if (!selection.toString()) return;
+    
+    // 创建高亮元素
+    const span = document.createElement('span');
+    span.className = `highlight-${color}`;
+    span.textContent = selection.toString();
+    
+    // 替换选中的文本
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(span);
+    
+    // 清除选择
+    selection.removeAllRanges();
+    
+    // 隐藏选择菜单
+    showSelectionMenu.value = false;
+  }
+
+  // 为选中文本添加笔记
+  function addNoteToSelection() {
+    const selection = window.getSelection();
+    if (!selection.toString()) return;
+    
+    // 打开笔记编辑框
+    showNoteEditor.value = true;
+    selectedText.value = selection.toString();
+    
+    // 清除选择
+    window.getSelection().removeAllRanges();
+    showSelectionMenu.value = false;
+  }
+
+  // 计算当前页面的笔记
+  const currentPageNotes = computed(() => {
+    return pageNotes.value.filter(note => note.page === currentPageIndex.value);
+  });
+
+  // 添加空白笔记
+  function addEmptyNote() {
+    const newNote = {
+      id: Date.now(),
+      text: '',
+      sourceText: '',
+      timestamp: new Date().toLocaleString(),
+      page: currentPageIndex.value,
+      editing: true,
+      active: true
+    };
+    
+    // 添加到所有笔记（而不是直接修改计算属性）
+    pageNotes.value.push(newNote);
+    
+    // 保存到本地存储
+    saveNotesToLocalStorage();
+  }
+
+  // 显示笔记内容进行编辑
+  function showNoteContent(note, index) {
+    // 找到原始笔记在所有笔记中的索引
+    const allNotesIndex = pageNotes.value.findIndex(n => n.id === note.id);
+    if (allNotesIndex !== -1) {
+      // 设置当前笔记为编辑状态
+      pageNotes.value[allNotesIndex].editing = true;
+    }
+  }
+
+  // 保存笔记
+  function saveNote(note, index) {
+    // 找到原始笔记在所有笔记中的索引
+    const allNotesIndex = pageNotes.value.findIndex(n => n.id === note.id);
+    if (allNotesIndex !== -1) {
+      // 退出编辑状态
+      pageNotes.value[allNotesIndex].editing = false;
+      
+      // 更新时间戳
+      pageNotes.value[allNotesIndex].timestamp = new Date().toLocaleString();
+      
+      // 更新文本内容（如果有变化）
+      pageNotes.value[allNotesIndex].text = note.text;
+    }
+    
+    // 保存到本地存储
+    saveNotesToLocalStorage();
+  }
+
+  // 删除笔记
+  function deleteNote(index) {
+    // 获取当前页面的笔记
+    const currentNotes = currentPageNotes.value;
+    if (index >= 0 && index < currentNotes.length) {
+      const noteId = currentNotes[index].id;
+      
+      // 从所有笔记中删除
+      const allNotesIndex = pageNotes.value.findIndex(n => n.id === noteId);
+      if (allNotesIndex !== -1) {
+        pageNotes.value.splice(allNotesIndex, 1);
+      }
+      
+      // 保存到本地存储
+      saveNotesToLocalStorage();
+    }
+  }
+
+  // 切换笔记面板显示/隐藏
+  function toggleNotesPanel() {
+    showNotesPanel.value = !showNotesPanel.value;
+    // 如果打开笔记面板，则关闭其他面板
+    if (showNotesPanel.value) {
+      showBookmarks.value = false;
+      showChapterNav.value = false;
+    }
+  }
+
+  // 关闭笔记编辑框
+  function closeNoteEditor() {
+    showNoteEditor.value = false;
+    noteContent.value = '';
+  }
+
+  // 保存笔记到本地存储
+  function saveNotesToLocalStorage() {
+    localStorage.setItem('pageNotes', JSON.stringify(pageNotes.value));
+  }
+
+  // 保存选中文本的笔记
+  function saveNoteFromEditor() {
+    if (!noteContent.value.trim()) {
+      closeNoteEditor();
+      return;
+    }
+    
+    const newNote = {
+      id: Date.now(),
+      text: noteContent.value,
+      sourceText: selectedText.value,
+      timestamp: new Date().toLocaleString(),
+      page: currentPageIndex.value,
+      editing: false,
+      active: true
+    };
+    
+    // 添加到所有笔记
+    pageNotes.value.push(newNote);
+    
+    // 保存到本地存储
+    saveNotesToLocalStorage();
+    
+    // 关闭编辑框
+    closeNoteEditor();
+    
+    // 打开笔记面板
+    showNotesPanel.value = true;
+  }
+
+  // 切换章节导航显示/隐藏
+  function toggleChapterNav() {
+    showChapterNav.value = !showChapterNav.value;
+    // 如果打开章节导航，则关闭其他面板
+    if (showChapterNav.value) {
+      showBookmarks.value = false;
+      showNotesPanel.value = false;
+    }
+  }
+
+  // 切换书签面板显示/隐藏
+  function toggleBookmarks() {
+    showBookmarks.value = !showBookmarks.value;
+    // 如果打开书签面板，则关闭其他面板
+    if (showBookmarks.value) {
+      showChapterNav.value = false;
+      showNotesPanel.value = false;
+    }
+  }
+
+  // 术语点击处理 - 在组件挂载后添加事件监听
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const technicalTerms = ref([
+    // ...
+  ]);
+
+  // 术语标记处理
+  function markTechnicalTerms(content) {
+    if (!content) return '';
+    
+    const terms = technicalTerms.value;
+    let processedContent = content;
+    
+    terms.forEach(term => {
+      const regex = new RegExp(`(${term.term})(?![^<]*>)`, 'gi');
+      processedContent = processedContent.replace(regex, 
+        `<span class="technical-term" data-term="${term.term}" data-definition="${term.definition}">$1</span>`);
+    });
+    
+    return processedContent;
+  }
+
+  // 调整字体大小
+  function adjustFontSize(delta) {
+    const contentContainer = document.querySelector('.book-content');
+    if (!contentContainer) return;
+    
+    // 获取当前字体大小
+    const currentSize = parseInt(window.getComputedStyle(contentContainer).fontSize);
+    
+    // 计算新的字体大小，确保在合理范围内
+    const newSize = Math.max(12, Math.min(24, currentSize + delta));
+    
+    // 应用新的字体大小
+    contentContainer.style.fontSize = `${newSize}px`;
+    
+    // 保存字体大小设置到本地存储
+    localStorage.setItem('bookFontSize', newSize);
+  }
+
+  // 切换顶部导航栏显示/隐藏
+  const isHeaderCollapsed = ref(false);
+  function toggleHeader() {
+    isHeaderCollapsed.value = !isHeaderCollapsed.value;
+    // 保存用户偏好
+    localStorage.setItem('headerCollapsed', isHeaderCollapsed.value);
+  }
+
+  // 切换底部导航栏显示/隐藏
+  const isFooterCollapsed = ref(false);
+  function toggleFooter() {
+    isFooterCollapsed.value = !isFooterCollapsed.value;
+    // 保存用户偏好
+    localStorage.setItem('footerCollapsed', isFooterCollapsed.value);
+  }
+
+  // 增加数学公式处理函数
+  function processMathFormulas(content) {
+    if (!content) return '';
+    
+    // 处理行内公式 $...$
+    let processedContent = content.replace(/\$([^\$]+)\$/g, '<span class="math-formula inline-formula">$1</span>');
+    
+    // 处理块级公式 $$...$$
+    processedContent = processedContent.replace(/\$\$([^\$]+)\$\$/g, '<div class="math-formula block-formula">$1</div>');
+    
+    return processedContent;
+  }
+
+  // 朗读功能
+  function toggleReading() {
+    isReading.value = !isReading.value;
+    
+    if (isReading.value) {
+      startReading();
+    } else {
+      stopReading();
+    }
+  }
+
+  // 开始朗读
+  function startReading() {
+    if (!window.speechSynthesis) {
+      console.error('浏览器不支持语音合成API');
+      isReading.value = false;
+      return;
+    }
+    
+    // 获取当前页面内容的纯文本
+    const contentElement = document.querySelector('.book-content');
+    if (!contentElement) return;
+    
+    const textContent = contentElement.textContent || '';
+    
+    // 创建语音合成实例
+    const utterance = new SpeechSynthesisUtterance(textContent);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 1.0;
+    
+    // 朗读结束时更新状态
+    utterance.onend = () => {
+      isReading.value = false;
+    };
+    
+    // 开始朗读
+    window.speechSynthesis.speak(utterance);
+    
+    // 保存当前朗读实例以便停止
+    currentUtterance.value = utterance;
+  }
+
+  // 停止朗读
+  function stopReading() {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    
+    isReading.value = false;
+  }
+
+  // 关键词高亮状态更新时重新渲染内容
+  const enableKeywordHighlight = ref(false);
+  function toggleKeywordHighlight() {
+    enableKeywordHighlight.value = !enableKeywordHighlight.value;
+    // 保存用户偏好
+    localStorage.setItem('keywordHighlight', enableKeywordHighlight.value);
+  }
+
+  // 专业术语库
+  // ...
+
+  // 分享功能实现
+  function shareContent() {
+    const content = getCurrentPageContent();
+    const url = window.location.href;
+    const title = '《深度学习基础》';
+    const text = `分享自《深度学习基础》：${document.querySelector('.book-content')?.textContent?.substring(0, 100)}...`;
+    
+    try {
+      // 首先尝试使用现代分享API
+      if (navigator.share) {
+        navigator.share({
+          title: title,
+          text: text,
+          url: url,
+        }).catch(error => {
+          console.log('分享失败:', error);
+          // 如果分享API失败，回退到剪贴板复制
+          fallbackShare();
+        });
+      } else {
+        // 浏览器不支持分享API，回退到剪贴板复制
+        fallbackShare();
+      }
+    } catch (error) {
+      console.error('分享出错:', error);
+      fallbackShare();
+    }
+    
+    // 回退分享方法：复制到剪贴板
+    function fallbackShare() {
+      try {
+        navigator.clipboard.writeText(text).then(() => {
+          alert('内容已复制到剪贴板，您可以粘贴分享给他人。');
+        }).catch(() => {
+          alert('无法复制到剪贴板，请手动复制。');
+        });
+      } catch (e) {
+        alert('您的浏览器不支持自动复制，请手动复制分享。');
+      }
+    }
+  }
 </script>
 
 <style scoped>
-.panel-container {
-  height: 100%;
-  transition: all 0.3s ease;
-}
+  /* 笔记面板样式 */
+  .side-notes-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 0;
+    background-color: #f8f9fa;
+    border-left: 1px solid #e9ecef;
+    transition: width 0.3s ease;
+    overflow: hidden;
+    z-index: 10;
+  }
 
-.card {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
+  .dark .side-notes-panel {
+    background-color: #2d3748;
+    border-left: 1px solid #4a5568;
+  }
 
-.book-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
+  .side-notes-panel.expanded {
+    width: 320px;
+  }
 
-.book-content-wrapper {
-  flex-grow: 1;
-  position: relative;
-  overflow: visible; /* 修改为visible */
-}
+  .notes-toggle-button {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 40px;
+    background-color: #f0f0f0;
+    border-radius: 4px 0 0 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+    border-right: none;
+    z-index: 11;
+  }
 
-.book-content {
-  flex-grow: 1;
-  position: relative;
-  overflow: visible; /* 修改为visible */
-}
+  .dark .notes-toggle-button {
+    background-color: #4a5568;
+    border-color: #2d3748;
+  }
 
-.page {
-  background-color: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  position: relative;
-}
+  .notes-content {
+    padding: 15px;
+    height: 100%;
+    overflow-y: auto;
+    width: 100%;
+  }
 
-/* 深色模式下调整页面背景 */
-:root.dark .page {
-  background-color: #1f2937; /* 与笔记区域背景色保持一致 */
-  color: #e5e7eb; /* 确保文本在深色背景下可读 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
+  .notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+  }
 
-.book-footer {
-  height: 50px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: white; /* 确保背景为白色 */
-  z-index: 10;
-  position: relative; /* 确保定位正确 */
-  margin-top: 0 !important; /* 消除和拖动条的间隙 */
-}
+  .dark .notes-header {
+    border-bottom-color: #4a5568;
+  }
 
-.dark .book-footer {
-  border-color: #374151;
-  background-color: #1f2937;
-}
+  .notes-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
 
-/* 内容区域样式 - 结合图1和图2的优点 */
-.content-area {
-  font-size: 16px;
-  line-height: 1.7;
-  color: #374151;
-  padding: 20px 30px;
-}
+  .notes-header h3 i {
+    margin-right: 8px;
+    color: #4299e1;
+  }
 
-.dark .content-area {
-  color: #e5e7eb;
-}
+  .add-note-btn {
+    padding: 5px 10px;
+    background-color: #4299e1;
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+  }
 
-/* 高亮关键词样式 - 类似图2的黄色高亮 */
-.keyword {
-  background-color: #fff3a1;
-  color: #000;
-  padding: 0 2px;
-  border-radius: 2px;
-  font-weight: 500;
-  display: inline;
-}
+  .add-note-btn i {
+    margin-right: 5px;
+  }
 
-.dark .keyword {
-  background-color: #ffec99;
-  color: #000;
-}
+  .notes-list {
+    margin-bottom: 15px;
+  }
 
-/* 链接样式增强 - 类似图1 */
-.content-area a {
-  color: #3b82f6;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s;
-}
+  .empty-notes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0;
+    color: #a0aec0;
+    text-align: center;
+  }
 
-.content-area a:hover {
-  border-color: #3b82f6;
-}
+  .empty-notes i {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
 
-.dark .content-area a {
-  color: #60a5fa;
-}
+  .empty-notes .help-text {
+    font-size: 12px;
+    margin-top: 10px;
+    max-width: 200px;
+    line-height: 1.4;
+  }
 
-.dark .content-area a:hover {
-  border-color: #60a5fa;
-}
+  .empty-notes .help-text i {
+    font-size: 12px;
+    margin: 0 2px;
+    display: inline;
+  }
 
-/* 底部导航区域 */
-.navigation-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
+  .note-item {
+    background-color: white;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-left: 3px solid #4299e1;
+  }
 
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+  .dark .note-item {
+    background-color: #2d3748;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
 
-/* 折叠按钮样式 */
-.header-collapse-btn, .footer-collapse-btn {
-  opacity: 0.5;
-  transition: all 0.3s ease;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-}
+  .note-item.active {
+    border-left-color: #f6ad55;
+  }
 
-.header-collapse-btn:hover, .footer-collapse-btn:hover {
-  opacity: 1;
-  transform: scale(1.1);
-  background-color: #e5e7eb;
-}
+  .note-source-text {
+    font-size: 12px;
+    color: #718096;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #e2e8f0;
+    font-style: italic;
+  }
 
-.dark .header-collapse-btn:hover, .dark .footer-collapse-btn:hover {
-  background-color: #4b5563;
-}
+  .dark .note-source-text {
+    color: #a0aec0;
+    border-bottom-color: #4a5568;
+  }
 
-.header-collapse-btn {
-  top: 8px;
-  right: 8px;
-}
+  .note-content {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
 
-.footer-collapse-btn {
-  bottom: 8px;
-  right: 8px;
-}
+  .note-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
 
-/* 折叠状态下的按钮位置 */
-.top-actions-collapsed {
-  top: 0;
-}
+  .note-action-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    background-color: #edf2f7;
+    color: #4a5568;
+    display: flex;
+    align-items: center;
+  }
 
-.bottom-actions-collapsed {
-  bottom: 0;
-}
+  .dark .note-action-btn {
+    background-color: #4a5568;
+    color: #e2e8f0;
+  }
 
-/* 折叠按钮图标旋转动画 */
-.header-collapse-btn i, .footer-collapse-btn i {
-  transition: transform 0.3s ease;
-  color: #6b7280;
-}
+  .note-action-btn i {
+    margin-right: 4px;
+    font-size: 10px;
+  }
 
-/* 折叠按钮样式 */
-.header-collapse-btn-collapsed {
-  opacity: 0.7;
-  transition: all 0.3s ease;
-}
+  .note-action-btn.delete {
+    background-color: #fed7d7;
+    color: #e53e3e;
+  }
 
-.header-collapse-btn-collapsed:hover {
-  opacity: 1;
-  transform: scale(1.05);
-}
+  .dark .note-action-btn.delete {
+    background-color: #742a2a;
+    color: #fc8181;
+  }
 
-/* 笔记面板样式 */
-.side-notes-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: 100%;
-  width: 0;
-  background-color: #fff;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  border-left: 1px solid #e5e7eb;
-  z-index: 15;
-  box-shadow: -5px 0 25px rgba(0, 0, 0, 0);
-}
+  .note-timestamp {
+    font-size: 10px;
+    color: #a0aec0;
+    text-align: right;
+    margin-top: 5px;
+  }
 
-.dark .side-notes-panel {
-  background-color: #1f2937;
-  border-left-color: #374151;
-}
+  .note-instructions {
+    font-size: 12px;
+    color: #718096;
+    padding: 10px;
+    background-color: #edf2f7;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+  }
 
-.side-notes-panel.expanded {
-  width: 320px;
-  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.1);
-}
+  .dark .note-instructions {
+    background-color: #4a5568;
+    color: #e2e8f0;
+  }
 
-.dark .side-notes-panel.expanded {
-  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.3);
-}
+  .note-instructions i {
+    margin-right: 8px;
+    color: #4299e1;
+  }
 
-.notes-toggle-button {
-  position: absolute;
-  left: -36px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 60px;
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-right: none;
-  border-radius: 6px 0 0 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #4b5563;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
-  z-index: 5;
-  transition: all 0.2s ease;
-}
+  /* 书籍内容区域样式 */
+  .book-content {
+    padding: 20px;
+    line-height: 1.6;
+    font-size: 16px;
+  }
 
-.dark .notes-toggle-button {
-  background-color: #2d3748;
-  border-color: #4b5563;
-  color: #e2e8f0;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
-}
+  .book-content h1 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: #2d3748;
+  }
 
-.notes-toggle-button:hover {
-  background-color: #f3f4f6;
-  color: #3b82f6;
-  width: 40px;
-  left: -40px;
-}
+  .dark .book-content h1 {
+    color: #e2e8f0;
+  }
 
-.dark .notes-toggle-button:hover {
-  background-color: #374151;
-  color: #60a5fa;
-}
+  .book-content p {
+    margin-bottom: 16px;
+  }
 
-.notes-content {
-  height: 100%;
-  width: 100%;
-  padding: 1.25rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
+  /* 关键词高亮样式 */
+  .keyword-highlight {
+    background-color: rgba(255, 255, 0, 0.3);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
 
-.notes-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 1rem;
-  margin-bottom: 1.25rem;
-  border-bottom: 1px solid #e5e7eb;
-}
+  /* 专业术语样式 */
+  .technical-term {
+    color: #4299e1;
+    border-bottom: 1px dashed #4299e1;
+    cursor: help;
+  }
 
-.dark .notes-header {
-  border-bottom-color: #4b5563;
-}
+  /* 数学公式样式 */
+  .math-formula {
+    font-family: 'Cambria Math', serif;
+  }
 
-.notes-header h3 {
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-  display: flex;
-  align-items: center;
-}
+  .inline-formula {
+    display: inline-block;
+    margin: 0 2px;
+  }
 
-.notes-header h3 i {
-  margin-right: 0.5rem;
-  color: #4b5563;
-}
+  .block-formula {
+    display: block;
+    margin: 10px 0;
+    padding: 10px;
+    text-align: center;
+  }
 
-.dark .notes-header h3 {
-  color: #f9fafb;
-}
+  /* 高亮样式 */
+  .highlight-yellow {
+    background-color: rgba(255, 255, 0, 0.3);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
 
-.dark .notes-header h3 i {
-  color: #9ca3af;
-}
+  /* 底部导航栏样式 */
+  .book-footer {
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 0;
+    background-color: white;
+  }
 
-.add-note-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  background-color: #3b82f6;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-}
+  .dark .book-footer {
+    background-color: #1a202c;
+    border-top-color: #2d3748;
+  }
 
-.dark .add-note-btn {
-  background-color: #4f46e5;
-  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.4);
-}
+  /* 选择菜单样式 */
+  .selection-menu {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
 
-.add-note-btn:hover {
-  background-color: #2563eb;
-}
+  /* 笔记编辑框样式 */
+  .note-editor {
+    width: 90%;
+    max-width: 400px;
+  }
 
-.dark .add-note-btn:hover {
-  background-color: #4338ca;
-}
-
-.add-note-btn i {
-  margin-right: 0.375rem;
-  font-size: 0.75rem;
-}
-
-.notes-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  flex-grow: 1;
-}
-
-.empty-notes {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem 1rem;
-  color: #6b7280;
-  font-size: 0.875rem;
-  text-align: center;
-  border: 2px dashed #e5e7eb;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-  background-color: #f9fafb;
-}
-
-.dark .empty-notes {
-  color: #9ca3af;
-  border-color: #4b5563;
-  background-color: #1e293b;
-}
-
-.empty-notes i {
-  font-size: 2rem;
-  color: #9ca3af;
-  margin-bottom: 1rem;
-}
-
-.dark .empty-notes i {
-  color: #6b7280;
-}
-
-.empty-notes p {
-  margin: 0.5rem 0;
-}
-
-.empty-notes .help-text {
-  margin-top: 1rem;
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-  color: #9ca3af;
-  max-width: 90%;
-}
-
-.dark .empty-notes .help-text {
-  color: #6b7280;
-}
+  /* 响应式调整 */
+  @media (max-width: 768px) {
+    .side-notes-panel.expanded {
+      width: 100%;
+    }
+  }
 </style>

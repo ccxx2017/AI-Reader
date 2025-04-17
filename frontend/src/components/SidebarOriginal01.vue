@@ -236,59 +236,14 @@
                   </div>
                 </div>
                 <div class="flex items-center text-xs text-gray-400 space-x-2">
-                  <span v-if="readingHistory.value && readingHistory.value.length > 0" class="flex items-center">
-                    <i class="fas fa-bookmark text-blue-500 mr-1"></i> 第{{readingHistory.value[0].currentPage}}/{{readingHistory.value[0].totalPages}}页
-                    <button class="ml-1 text-amber-400 opacity-70 hover:opacity-100 transition-opacity" 
-                            title="添加书签"
-                            @click.stop="addBookmark">
-                      <i class="fas fa-plus-circle text-[10px]"></i>
-                    </button>
+                  <span v-if="readingHistory.value && readingHistory.value.length > 0 && readingHistory.value[0].sessions">
+                    阅读时长：{{readingHistory.value[0].sessions.reduce((sum, session) => sum + session.duration, 0)}}分钟
                   </span>
-                  <span v-else class="flex items-center">
-                    <i class="fas fa-bookmark text-blue-500 mr-1"></i> 第25/102页
-                    <button class="ml-1 text-amber-400 opacity-70 hover:opacity-100 transition-opacity" 
-                            title="添加书签"
-                            @click.stop="addBookmark">
-                      <i class="fas fa-plus-circle text-[10px]"></i>
-                    </button>
-                  </span>
-                  
-                  <span v-if="readingHistory.value && readingHistory.value.length > 0 && readingHistory.value[0].sessions && readingHistory.value[0].sessions.length > 0" class="flex items-center">
-                    <i class="fas fa-clock text-green-500 mr-1"></i> 今日: {{readingHistory.value[0].sessions[0].duration}}分钟
-                  </span>
-                  <span v-else class="flex items-center">
-                    <i class="fas fa-clock text-green-500 mr-1"></i> 今日: 30分钟
-                  </span>
+                  <span v-else>阅读时长：90分钟</span>
+                  <button class="text-blue-400 hover:text-blue-300 transition-colors">
+                    <i class="fas fa-bookmark mr-1"></i>继续阅读
+                  </button>
                 </div>
-              </div>
-            </div>
-            <!-- 章节信息 -->
-            <div class="mt-3 pt-3 border-t border-gray-700">
-              <div class="flex items-center justify-between text-sm mb-1">
-                <div class="relative">
-                  <div class="flex items-center cursor-pointer" @click="toggleChapterMenu">
-                    <span class="text-gray-300">本章: <span class="text-blue-300">第一章 量子计算概述</span></span>
-                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
-                  </div>
-                  <div v-if="showChapterMenu" class="absolute left-0 top-full mt-1 bg-gray-800 rounded-md z-20 w-64 p-1 border border-gray-700 max-h-32 overflow-y-auto">
-                    <div v-for="chapter in bookChapters" :key="chapter.id" 
-                         class="p-1.5 hover:bg-gray-700 text-xs rounded cursor-pointer flex items-center"
-                         @click="selectChapter(chapter)">
-                      <i class="fas fa-file-alt text-blue-400 mr-1.5"></i>
-                      <span>{{chapter.title}}</span>
-                      <span v-if="chapter.id === 'chapter1'" class="ml-auto text-green-400 text-[9px]">当前</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex items-center text-xs text-gray-400 justify-between">
-                <span v-if="readingHistory.value && readingHistory.value.length > 0 && readingHistory.value[0].sessions">
-                  阅读时长：{{readingHistory.value[0].sessions.reduce((sum, session) => sum + session.duration, 0)}}分钟
-                </span>
-                <span v-else>阅读时长：90分钟</span>
-                <button class="text-blue-400 hover:text-blue-300 transition-colors">
-                  <i class="fas fa-bookmark mr-1"></i>继续阅读
-                </button>
               </div>
             </div>
           </div>
@@ -837,14 +792,9 @@ const pagesSortOrder = ref('newest');
 const showOnlyRecognized = ref(false);
 const showFilterDropdown = ref(false);
 const showLearningStatistics = ref(false);
-const showChapterMenu = ref(false);
-const bookChapters = ref([
-  { id: 'chapter1', title: '第一章 量子计算概述', page: 1 },
-  { id: 'chapter2', title: '第二章 量子比特和量子门', page: 15 },
-  { id: 'chapter3', title: '第三章 量子算法基础', page: 32 },
-  { id: 'chapter4', title: '第四章 量子编程', page: 47 },
-  { id: 'chapter5', title: '第五章 量子优势案例', page: 68 },
-]);
+const showGoalSettings = ref(false);
+const showAchievementAnimation = ref(false);
+const currentAchievement = ref('完成今日阅读目标');
 
 // 系统状态总结
 const systemStatus = ref('normal'); // 可能的值: normal, warning, error
@@ -852,18 +802,21 @@ const systemStatusMessage = computed(() => {
   if (systemStatus.value === 'normal') return '系统正常运行中';
   if (systemStatus.value === 'warning') return '注意：光线变暗';
   if (systemStatus.value === 'error') return '错误：无法检测书本';
+  return '';
 });
 
 const systemStatusClass = computed(() => {
   if (systemStatus.value === 'normal') return 'bg-green-900/30 text-green-400';
   if (systemStatus.value === 'warning') return 'bg-yellow-900/30 text-yellow-400';
   if (systemStatus.value === 'error') return 'bg-red-900/30 text-red-400';
+  return '';
 });
 
 const systemStatusIcon = computed(() => {
   if (systemStatus.value === 'normal') return 'fa-check-circle';
   if (systemStatus.value === 'warning') return 'fa-exclamation-triangle';
   if (systemStatus.value === 'error') return 'fa-times-circle';
+  return '';
 });
 
 // 模拟捕获的页面数据
@@ -991,8 +944,6 @@ const learningState = ref({
 const historyFilter = ref({
   searchTerm: '',
   timeRange: 'all', // 'today', 'week', 'month', 'all'
-  type: 'all', // 'book', 'paper', 'note', 'all'
-  status: 'all', // 'completed', 'in-progress', 'not-started', 'all'
   sortBy: 'recent' // 'recent', 'duration', 'progress', 'engagement'
 });
 
@@ -1001,11 +952,7 @@ const expandedBookId = ref(null);
 
 // 过滤和排序后的阅读历史
 const filteredReadingHistory = computed(() => {
-  // 检查readingHistory是否存在
-  if (!readingHistory.value || readingHistory.value.length === 0) {
-    return defaultReadingHistory;
-  }
-  
+  // 先过滤
   let result = readingHistory.value;
   
   // 搜索过滤
@@ -1078,9 +1025,6 @@ function formatRelativeTime(timestamp) {
   // 其他情况
   return `${Math.floor(diff / 86400000)}天前`;
 }
-
-// 当前选中的页面（用于中间阅读区模拟）
-const currentPage = ref(null);
 
 // 过滤和排序后的页面列表
 const filteredPages = computed(() => {
@@ -1157,7 +1101,7 @@ function toggleOnlyRecognized(event) {
 // 跳转至指定页面
 function jumpToPage(page) {
   // 显示加载状态 - 这里可以添加通知其他组件的逻辑
-  currentPage.value = page;
+  // currentPage.value = page;
   
   // 模拟页面跳转成功通知
   const event = new CustomEvent('jump-to-page', { 
@@ -1291,22 +1235,6 @@ function jumpToProgressPosition() {
   console.log('跳转至进度位置');
 }
 
-// 切换章节菜单显示/隐藏
-function toggleChapterMenu() {
-  showChapterMenu.value = !showChapterMenu.value;
-}
-
-// 选择章节
-function selectChapter(chapter) {
-  console.log(`选择章节: ${chapter.title}, 页码: ${chapter.page}`);
-  showChapterMenu.value = false;
-}
-
-// 添加书签
-function addBookmark() {
-  console.log('添加书签');
-}
-
 // 继续阅读指定书籍
 function continueReading(book) {
   console.log(`继续阅读: ${book.title}`);
@@ -1328,25 +1256,24 @@ function viewConceptDetails(concept) {
 }
 
 // 添加新的响应变量
-const showGoalSettings = ref(false);
 const showAchievementAnimation = ref(false);
 const currentAchievement = ref('完成今日阅读目标');
 
 // 调整学习目标
 function adjustGoal(goalType, amount) {
-  if (!learningState.value || !learningState.learningGoals) return;
+  if (!learningState.value || !learningState.value.learningGoals) return;
   
   if (goalType === 'dailyReadingTime') {
-    learningState.learningGoals.dailyReadingTime += amount;
+    learningState.value.learningGoals.dailyReadingTime += amount;
     // 确保不小于5分钟
-    if (learningState.learningGoals.dailyReadingTime < 5) {
-      learningState.learningGoals.dailyReadingTime = 5;
+    if (learningState.value.learningGoals.dailyReadingTime < 5) {
+      learningState.value.learningGoals.dailyReadingTime = 5;
     }
   } else if (goalType === 'weeklyPages') {
-    learningState.learningGoals.weeklyPages += amount;
+    learningState.value.learningGoals.weeklyPages += amount;
     // 确保不小于5页
-    if (learningState.learningGoals.weeklyPages < 5) {
-      learningState.learningGoals.weeklyPages = 5;
+    if (learningState.value.learningGoals.weeklyPages < 5) {
+      learningState.value.learningGoals.weeklyPages = 5;
     }
   }
 }
@@ -1373,7 +1300,7 @@ onMounted(() => {
   setTimeout(() => {
     simulateAIProcessing();
   }, 2000);
-});
+})
 </script>
 
 <style scoped>

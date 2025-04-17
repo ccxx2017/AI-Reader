@@ -1,4 +1,4 @@
-<template>
+<template #default>
   <!-- 左侧侧边栏 -->
   <div 
     id="sidebar" 
@@ -150,7 +150,7 @@
                     <i class="fas fa-info-circle mr-1"></i> 暂无已捕获页面
                   </div>
                   <div v-else class="max-h-[200px] overflow-y-auto">
-                    <div v-for="(page, index) in filteredPages" :key="index" class="captured-page-item p-2 border-b border-gray-700 last:border-b-0 hover:bg-gray-600/30 transition-colors duration-200 cursor-pointer">
+                    <div v-for="(page, _) in filteredPages" :key="page.id" class="captured-page-item p-2 border-b border-gray-700 last:border-b-0 hover:bg-gray-600/30 transition-colors duration-200 cursor-pointer">
                       <div class="flex items-start">
                         <!-- 页面缩略图 -->
                         <div class="page-thumbnail w-12 h-16 bg-gray-700 rounded-sm overflow-hidden mr-2 flex-shrink-0 relative" :data-page-id="page.id">
@@ -551,7 +551,7 @@
           <!-- 阅读历史时间线视图 -->
           <div v-if="historyViewMode === 'timeline'" class="history-timeline mt-3">
             <div class="relative pl-6 border-l-2 border-gray-700">
-              <div v-for="(book, index) in filteredReadingHistory" :key="`timeline-${book.id}`" class="mb-4 relative">
+              <div v-for="(book, _) in filteredReadingHistory" :key="`timeline-${book.id}`" class="mb-4 relative">
                 <!-- 时间线节点 -->
                 <div class="timeline-node absolute top-0 left-0 transform -translate-x-4 w-6 h-6 bg-gray-800 border-2 border-blue-500 rounded-full flex items-center justify-center">
                   <i class="fas fa-book text-[10px] text-blue-400"></i>
@@ -700,12 +700,12 @@
                 <!-- 会话列表 -->
                 <div class="space-y-2" v-if="book.sessions && book.sessions.length > 0">
                   <div 
-                    v-for="(session, index) in book.sessions" 
+                    v-for="(session, _) in book.sessions" 
                     :key="session.id" 
                     class="text-xs p-1.5 bg-gray-800/60 rounded"
                   >
                     <div class="flex items-center justify-between mb-1">
-                      <span class="text-gray-300">第 {{index + 1}} 次阅读</span>
+                      <span class="text-gray-300">第 {{session.id}} 次阅读</span>
                       <span class="text-gray-400">{{formatRelativeTime(session.startTime)}}</span>
                     </div>
                     <div class="flex items-center space-x-3 text-[10px] text-gray-400">
@@ -1685,19 +1685,19 @@ const currentAchievement = ref('完成今日阅读目标');
 
 // 调整学习目标
 function adjustGoal(goalType, amount) {
-  if (!learningState.value || !learningState.learningGoals) return;
+  if (!learningState.value || !learningState.value.learningGoals) return;
   
   if (goalType === 'dailyReadingTime') {
-    learningState.learningGoals.dailyReadingTime += amount;
+    learningState.value.learningGoals.dailyReadingTime += amount;
     // 确保不小于5分钟
-    if (learningState.learningGoals.dailyReadingTime < 5) {
-      learningState.learningGoals.dailyReadingTime = 5;
+    if (learningState.value.learningGoals.dailyReadingTime < 5) {
+      learningState.value.learningGoals.dailyReadingTime = 5;
     }
   } else if (goalType === 'weeklyPages') {
-    learningState.learningGoals.weeklyPages += amount;
+    learningState.value.learningGoals.weeklyPages += amount;
     // 确保不小于5页
-    if (learningState.learningGoals.weeklyPages < 5) {
-      learningState.learningGoals.weeklyPages = 5;
+    if (learningState.value.learningGoals.weeklyPages < 5) {
+      learningState.value.learningGoals.weeklyPages = 5;
     }
   }
 }

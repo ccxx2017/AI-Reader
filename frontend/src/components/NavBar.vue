@@ -56,7 +56,7 @@ import { ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import { useEventBus } from '../composables/useEventBus';
 
 // 注入主题相关函数
-const { currentTheme, toggleTheme, setTheme } = inject('theme');
+const { setTheme } = inject('theme');
 
 // 主题下拉菜单状态
 const isThemeDropdownVisible = ref(false);

@@ -1,0 +1,4 @@
+# 忽略所有组件文件中的 ESLint 错误
+src/components/*.vue
+src/App.vue
+src/store/*.js

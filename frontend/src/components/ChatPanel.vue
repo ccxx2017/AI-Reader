@@ -42,14 +42,14 @@
           <!-- AI助手消息 - 可折叠 -->
           <div class="py-2 px-3 bg-gray-100 dark:bg-gray-800 rounded-lg inline-block max-w-[85%] relative group">
             <!-- 收藏按钮 -->
-            <button @click="toggleFavorite($event)" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none">
+            <button @click="toggleFavorite" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none">
               <i class="far fa-star text-xs text-gray-500 dark:text-gray-400"></i>
             </button>
             
             <!-- 折叠/展开按钮 -->
             <div v-if="isLongMessage" class="flex justify-between items-center mb-1">
               <span class="text-xs text-gray-500 dark:text-gray-400">AI助手</span>
-              <button @click="toggleMessageCollapse($event)" class="text-xs text-blue-500 hover:underline focus:outline-none">
+              <button @click="toggleMessageCollapse" class="text-xs text-blue-500 hover:underline focus:outline-none">
                 {{ isMessageCollapsed ? '展开全部' : '折叠内容' }}
               </button>
             </div>
@@ -364,21 +364,24 @@ function saveSettings() {
 }
 
 // 折叠/展开消息
-function toggleMessageCollapse(event) {
+function toggleMessageCollapse() {
   isMessageCollapsed.value = !isMessageCollapsed.value;
 }
 
 // 收藏/取消收藏消息
-function toggleFavorite(event) {
-  const target = event.currentTarget.querySelector('i');
-  if (target.classList.contains('far')) {
+function toggleFavorite() {
+  const target = document.querySelector('.far');
+  if (target) {
     target.classList.remove('far');
     target.classList.add('fas');
     target.classList.add('text-yellow-500');
   } else {
-    target.classList.remove('fas');
-    target.classList.remove('text-yellow-500');
-    target.classList.add('far');
+    const target = document.querySelector('.fas');
+    if (target) {
+      target.classList.remove('fas');
+      target.classList.remove('text-yellow-500');
+      target.classList.add('far');
+    }
   }
 }
 
@@ -419,7 +422,11 @@ function openFileUpload() {
 }
 
 function handleFileUpload(event) {
-  // 实现文件上传逻辑
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function handleFile(event) {
+    // 实现文件上传逻辑
+  }
+  handleFile(event);
 }
 
 function toggleVoiceInput() {

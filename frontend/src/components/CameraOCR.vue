@@ -12,7 +12,6 @@
 
 <script setup>
 import { ref, onMounted, defineEmits } from 'vue'
-import Tesseract from 'tesseract.js'
 
 const video = ref(null)
 const canvas = ref(null)
