@@ -2,16 +2,17 @@
   <div class="camera-ocr">
     <video ref="video" autoplay playsinline width="320" height="240"></video>
     <canvas ref="canvas" width="320" height="240" style="display:none;"></canvas>
-    <div class="mt-2 flex space-x-2">
+    <div class="control-buttons">
       <button @click="takePhoto" class="btn">拍照</button>
       <button v-if="photoData" @click="uploadPhoto" class="btn">上传识别</button>
     </div>
-    <img v-if="photoData" :src="photoData" alt="拍照预览" class="mt-2 border rounded" width="160" />
+    <img v-if="photoData" :src="photoData" alt="拍照预览" class="preview-image" width="160" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, defineEmits } from 'vue'
+import ocrService from '../../services/ocrService'
 
 const video = ref(null)
 const canvas = ref(null)
@@ -49,22 +50,16 @@ async function uploadPhoto() {
     emits('ocr-status', {camera: 'working', page: 'detecting', ai: 'idle', captured: 'idle'})
     
     const blob = await (await fetch(photoData.value)).blob()
-    const formData = new FormData()
-    formData.append('file', blob, 'photo.png')
     
     // 更新状态：AI处理中
     emits('ocr-status', {camera: 'ready', page: 'done', ai: 'processing', captured: 'idle'})
     
-    const res = await fetch('http://localhost:8000/api/ocr/upload', {
-      method: 'POST',
-      body: formData
-    })
-    
-    const data = await res.json()
-    ocrText.value = data.text
+    // 使用OCR服务
+    const result = await ocrService.recognizeImage(blob)
+    ocrText.value = result.text
     
     // 发送识别结果到主区域
-    emits('ocr-result', data.text)
+    emits('ocr-result', result.text)
     
     // 更新状态：已捕获页面
     emits('ocr-status', {camera: 'ready', page: 'done', ai: 'done', captured: 'updated'})
@@ -81,7 +76,32 @@ async function uploadPhoto() {
 </script>
 
 <style scoped>
-.camera-ocr { max-width: 340px; }
-.btn { padding: 0.5em 1em; background: #2563eb; color: #fff; border-radius: 4px; border: none; cursor: pointer; }
-.btn:hover { background: #1d4ed8; }
+.camera-ocr { 
+  max-width: 340px; 
+}
+
+.control-buttons {
+  margin-top: 0.5rem; /* mt-2 */
+  display: flex; /* flex */
+  gap: 0.5rem; /* space-x-2 */
+}
+
+.btn { 
+  padding: 0.5em 1em; 
+  background: #2563eb; 
+  color: #fff; 
+  border-radius: 4px; 
+  border: none; 
+  cursor: pointer; 
+}
+
+.btn:hover { 
+  background: #1d4ed8; 
+}
+
+.preview-image {
+  margin-top: 0.5rem; /* mt-2 */
+  border: 1px solid #e5e7eb; /* border */
+  border-radius: 0.25rem; /* rounded */
+}
 </style>

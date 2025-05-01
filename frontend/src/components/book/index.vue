@@ -1,7 +1,7 @@
 <template>
   <!-- 中间书籍显示面板 -->
-  <div id="book-panel" class="panel-container panel-container-transition w-2/5 min-w-[300px]">
-    <div class="card h-full overflow-hidden flex flex-col relative">
+  <div id="book-panel" class="book-panel">
+    <div class="book-card">
       <!-- 顶部控制栏 -->
       <BookHeader 
         v-if="!isHeaderCollapsed" 
@@ -18,12 +18,12 @@
       />
       
       <!-- 顶部折叠控制按钮 - 折叠状态下的按钮 -->
-      <button v-if="isHeaderCollapsed" @click="toggleHeader" class="header-collapse-btn-collapsed absolute bg-white dark:bg-gray-800 p-1 rounded-full shadow-md z-20 top-2 right-2">
-        <i class="fas fa-chevron-down text-gray-600"></i>
+      <button v-if="isHeaderCollapsed" @click="toggleHeader" class="header-collapse-btn-collapsed">
+        <i class="fas fa-chevron-down icon-gray"></i>
       </button>
       
       <!-- 主要内容区域 -->
-      <div class="flex-grow flex flex-col overflow-hidden">
+      <div class="content-area">
         <!-- 章节导航 -->
         <ChapterNav 
           v-if="showChapterNav" 
@@ -74,6 +74,11 @@
         @adjust-font-size="adjustFontSize"
         @toggle-footer="toggleFooter"
       />
+      
+      <!-- 底部折叠控制按钮 - 折叠状态下的按钮 -->
+      <button v-if="isFooterCollapsed" @click="toggleFooter" class="footer-collapse-btn-collapsed">
+        <i class="fas fa-chevron-up icon-gray"></i>
+      </button>
     </div>
   </div>
   
@@ -97,7 +102,7 @@ import BookFooter from './BookFooter.vue';
 import ChapterNav from './ChapterNav.vue';
 import BookmarksPanel from './BookmarksPanel.vue';
 import NotesPanel from './NotesPanel.vue';
-import SelectionMenu from '../SelectionMenu.vue';
+import SelectionMenu from './SelectionMenu.vue';
 
 // 处理OCR识别结果
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -533,7 +538,7 @@ function markTechnicalTerms(content) {
   // 模拟术语库
   const terms = [
     { term: '深度学习', definition: '一种机器学习方法，使用多层神经网络进行特征学习和模式识别。' },
-    { term: '神经网络', definition: '一种模拟生物神经网络的计算模型，由多层神经元组成。' },
+    { term: '神经网络', definition: '一种模拟生物神经网络的计算模型，由多个相互连接的神经元层组成。' },
     { term: '卷积神经网络', definition: '一种专门用于处理网格结构数据的神经网络，广泛应用于图像处理。' }
     // 更多术语...
   ];
@@ -741,23 +746,72 @@ onMounted(() => {
 
 <style scoped>
 /* 引入必要的样式 */
-.panel-container-transition {
+.book-panel {
+  width: 40%;
+  min-width: 300px;
   transition: width 0.3s ease-in-out;
 }
 
-.card {
+.book-card {
   background-color: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
-.dark .card {
-  background-color: #1f2937;
+.dark .book-card {
+  background-color: #1e293b;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  color: #e5e7eb;
 }
 
 .header-collapse-btn-collapsed {
   z-index: 20;
+  position: absolute;
+  background-color: white;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.dark .header-collapse-btn-collapsed {
+  background-color: #1e293b;
+}
+
+.footer-collapse-btn-collapsed {
+  z-index: 20;
+  position: absolute;
+  background-color: white;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  bottom: 0.5rem;
+  right: 0.5rem;
+}
+
+.dark .footer-collapse-btn-collapsed {
+  background-color: #1e293b;
+}
+
+.icon-gray {
+  color: #4b5563;
+}
+
+.dark .icon-gray {
+  color: #d1d5db;
+}
+
+.content-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* 其他样式将在子组件中定义 */

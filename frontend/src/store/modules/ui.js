@@ -5,6 +5,13 @@ export const useUIStore = defineStore('ui', () => {
   // 侧边栏折叠状态
   const isSidebarCollapsed = ref(false);
   
+  // 侧边导航菜单状态
+  const isSideNavOpen = ref(false);
+  
+  // 面板宽度
+  const bookPanelWidth = ref('60%');
+  const chatPanelWidth = ref('40%');
+  
   // 当前主题
   const currentTheme = ref('默认'); // '默认', '深色', '柔和'
   
@@ -23,18 +30,12 @@ export const useUIStore = defineStore('ui', () => {
     learningState: { label: '学习状态', visible: true, order: 5 }
   });
   
-  // 阅读界面设置
-  const bookUISettings = ref({
-    isHeaderCollapsed: false,
-    isFooterCollapsed: false,
-    showChapterNav: false,
-    showBookmarks: false,
-    showNotesPanel: false,
-    enableKeywordHighlight: false
-  });
-  
-  // 聊天界面设置
+  // 聊天UI设置
   const chatUISettings = ref({
+    fontSize: 'medium',
+    messageStyle: 'bubble',
+    showTimestamps: true,
+    autoScroll: true,
     showSuggestions: true,
     showTools: false,
     isMessageCollapsed: true,
@@ -47,6 +48,16 @@ export const useUIStore = defineStore('ui', () => {
       notifyNoteReferences: true,
       theme: 'auto' // 'light', 'dark', 'auto'
     }
+  });
+  
+  // 阅读界面设置
+  const bookUISettings = ref({
+    isHeaderCollapsed: false,
+    isFooterCollapsed: false,
+    showChapterNav: false,
+    showBookmarks: false,
+    showNotesPanel: false,
+    enableKeywordHighlight: false
   });
   
   // 学习工具显示状态
@@ -65,8 +76,20 @@ export const useUIStore = defineStore('ui', () => {
   // 切换侧边栏折叠状态
   function toggleSidebar() {
     isSidebarCollapsed.value = !isSidebarCollapsed.value;
-    // 触发窗口调整事件，以便其他组件响应
+    
+    // 保存到本地存储
+    localStorage.setItem('sidebarCollapsed', isSidebarCollapsed.value);
+    
+    // 触发布局调整事件
     window.dispatchEvent(new CustomEvent('adjust-panel-widths'));
+    
+    console.log(`侧边栏状态已切换: ${isSidebarCollapsed.value ? '已折叠' : '已展开'}`);
+  }
+
+  // 切换侧边导航菜单
+  function toggleSideNav() {
+    isSideNavOpen.value = !isSideNavOpen.value;
+    window.dispatchEvent(new CustomEvent('toggle-side-nav', { detail: { isOpen: isSideNavOpen.value } }));
   }
   
   // 设置主题
@@ -106,7 +129,7 @@ export const useUIStore = defineStore('ui', () => {
     }
     
     // 保存到本地存储
-    localStorage.setItem('darkMode', value ? 'true' : 'false');
+    localStorage.setItem('darkMode', value);
   }
   
   // 显示/隐藏仪表盘设置
@@ -209,13 +232,19 @@ export const useUIStore = defineStore('ui', () => {
   // 加载侧边栏设置
   function loadSidebarSettings() {
     const savedSettings = localStorage.getItem('sidebarSections');
+    // 移除从localStorage读取折叠状态的代码，确保始终使用默认状态（展开）
+    // const savedCollapsedState = localStorage.getItem('sidebarCollapsed');
+    
     if (savedSettings) {
       try {
-        sidebarSections.value = JSON.parse(savedSettings);
+        sidebarSections.value = { ...sidebarSections.value, ...JSON.parse(savedSettings) };
       } catch (error) {
         console.error('加载侧边栏设置失败:', error);
       }
     }
+    
+    // 始终确保侧边栏是展开状态，而不是从localStorage加载
+    isSidebarCollapsed.value = false;
   }
   
   // 保存UI设置
@@ -227,6 +256,8 @@ export const useUIStore = defineStore('ui', () => {
   // 加载UI设置
   function loadUISettings() {
     const savedBookUI = localStorage.getItem('bookUISettings');
+    const savedChatUI = localStorage.getItem('chatUISettings');
+    
     if (savedBookUI) {
       try {
         bookUISettings.value = { ...bookUISettings.value, ...JSON.parse(savedBookUI) };
@@ -235,7 +266,6 @@ export const useUIStore = defineStore('ui', () => {
       }
     }
     
-    const savedChatUI = localStorage.getItem('chatUISettings');
     if (savedChatUI) {
       try {
         chatUISettings.value = { ...chatUISettings.value, ...JSON.parse(savedChatUI) };
@@ -270,8 +300,29 @@ export const useUIStore = defineStore('ui', () => {
     loadUISettings();
   }
   
+  // 加载初始面板宽度
+  function loadInitialPanelWidths() {
+    const savedBookWidth = localStorage.getItem('bookPanelWidth');
+    const savedChatWidth = localStorage.getItem('chatPanelWidth');
+    
+    if (savedBookWidth) {
+      bookPanelWidth.value = savedBookWidth;
+    }
+    
+    if (savedChatWidth) {
+      chatPanelWidth.value = savedChatWidth;
+    }
+  }
+  
+  // 初始化
+  init();
+  loadInitialPanelWidths();
+  
   return {
     isSidebarCollapsed,
+    isSideNavOpen,
+    bookPanelWidth,
+    chatPanelWidth,
     currentTheme,
     isDarkMode,
     showDashboardSettings,
@@ -298,7 +349,11 @@ export const useUIStore = defineStore('ui', () => {
     moveSectionUp,
     moveSectionDown,
     saveSidebarSettings,
+    loadSidebarSettings,
     saveUISettings,
-    init
+    loadUISettings,
+    init,
+    loadInitialPanelWidths,
+    toggleSideNav
   };
 });

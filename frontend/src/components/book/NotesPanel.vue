@@ -1,17 +1,18 @@
 <template>
   <!-- 侧边笔记面板 -->
   <div class="side-notes-panel" :class="{'expanded': showNotesPanel}">
-    <div class="notes-toggle-button" @click="$emit('toggle-notes-panel')">
-      <i :class="showNotesPanel ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
-    </div>
-    
     <!-- 笔记内容 -->
     <div class="notes-content" v-if="showNotesPanel">
       <div class="notes-header">
         <h3><i class="fas fa-sticky-note"></i> 页面笔记 ({{ currentPageNotes.length }})</h3>
-        <button @click="$emit('add-empty-note')" class="add-note-btn">
-          <i class="fas fa-plus"></i> 添加笔记
-        </button>
+        <div class="notes-header-buttons">
+          <button @click="$emit('add-empty-note')" class="add-note-btn">
+            <i class="fas fa-plus"></i> 添加笔记
+          </button>
+          <button @click="$emit('toggle-notes-panel')" class="close-notes-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
       </div>
       
       <div class="notes-list">
@@ -45,6 +46,11 @@
         <i class="fas fa-info-circle"></i> 提示：选中文本后可直接添加笔记
       </div>
     </div>
+    
+    <!-- 收起笔记按钮 - 独立定位，确保始终可见 -->
+    <button class="fixed-toggle-button" @click="$emit('toggle-notes-panel')">
+      <i class="fas fa-chevron-right" style="color: #0052cc; font-size: 20px; text-shadow: 0 0 3px rgba(255,255,255,0.9);"></i>
+    </button>
   </div>
 </template>
 
@@ -97,30 +103,6 @@ defineEmits([
   border-left: 1px solid #374151;
 }
 
-.notes-toggle-button {
-  position: absolute;
-  left: -24px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 48px;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  border-right: none;
-  border-radius: 4px 0 0 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.05);
-}
-
-.dark .notes-toggle-button {
-  background-color: #1f2937;
-  border-color: #374151;
-  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
-}
-
 .notes-content {
   height: 100%;
   display: flex;
@@ -153,6 +135,11 @@ defineEmits([
   color: #3b82f6;
 }
 
+.notes-header-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .add-note-btn {
   background-color: #3b82f6;
   color: white;
@@ -166,6 +153,21 @@ defineEmits([
 
 .add-note-btn:hover {
   background-color: #2563eb;
+}
+
+.close-notes-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.close-notes-btn:hover {
+  background-color: #dc2626;
 }
 
 .notes-list {
@@ -279,5 +281,84 @@ defineEmits([
 .dark .note-instructions {
   color: #9ca3af;
   border-top: 1px solid #374151;
+}
+
+/* 专用的独立按钮样式，确保一定可见 */
+.fixed-toggle-button {
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 60px;
+  background-color: #ffffff;
+  border: 2px solid #0052cc;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: -3px 0 8px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  outline: none;
+}
+
+.dark .fixed-toggle-button {
+  background-color: #1e293b;
+  border-color: #4d98ff;
+  box-shadow: -3px 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.fixed-toggle-button:hover {
+  background-color: #e6f0ff;
+  width: 32px;
+}
+
+.dark .fixed-toggle-button:hover {
+  background-color: #2d3748;
+}
+
+/* 只在笔记面板展开时显示的元素 */
+.side-notes-panel:not(.expanded) .fixed-toggle-button {
+  display: none;
+}
+
+/* 当面板折叠时，在对应位置添加展开按钮 */
+.side-notes-panel:not(.expanded)::before {
+  content: "";
+  position: absolute;
+  left: -30px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 60px;
+  background-color: #ffffff;
+  border: 2px solid #0052cc;
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  box-shadow: -3px 0 8px rgba(0, 0, 0, 0.2);
+  z-index: 9999;
+  cursor: pointer;
+}
+
+.dark .side-notes-panel:not(.expanded)::before {
+  background-color: #1e293b;
+  border-color: #4d98ff;
+}
+
+.side-notes-panel:not(.expanded)::after {
+  content: "\f053"; /* Font Awesome 左箭头 */
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #0052cc;
+  font-size: 20px;
+  z-index: 10000;
+  cursor: pointer;
+  text-shadow: 0 0 3px rgba(255,255,255,0.9);
 }
 </style>

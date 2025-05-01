@@ -1,23 +1,23 @@
 <template>
-  <div class="chapter-nav absolute left-0 top-0 h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-10 p-4 w-64 overflow-y-auto shadow-lg">
-    <div class="flex justify-between items-center mb-4">
-      <h3 class="font-medium">目录</h3>
-      <button @click="$emit('toggle-chapter-nav')" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+  <div class="chapter-nav">
+    <div class="chapter-header">
+      <h3 class="chapter-title">目录</h3>
+      <button @click="$emit('toggle-chapter-nav')" class="close-button">
         <i class="fas fa-times"></i>
       </button>
     </div>
-    <ul class="space-y-4">
-      <li v-for="(chapter, chapterIndex) in chapters" :key="chapterIndex" class="mb-3">
+    <ul class="chapter-list">
+      <li v-for="(chapter, chapterIndex) in chapters" :key="chapterIndex" class="chapter-item">
         <div @click="$emit('navigate-to-chapter', chapterIndex)" 
-             class="flex items-center cursor-pointer py-1 px-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-             :class="{'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400': chapterIndex === currentChapter}">
-          <span class="font-medium">{{ chapter.title }}</span>
+             class="chapter-heading"
+             :class="{'chapter-active': chapterIndex === currentChapter}">
+          <span class="chapter-heading-text">{{ chapter.title }}</span>
         </div>
-        <ul class="pl-4 mt-1 space-y-1">
+        <ul class="section-list">
           <li v-for="(section, sectionIndex) in chapter.sections" :key="sectionIndex">
             <div @click="$emit('navigate-to-section', chapterIndex, sectionIndex)" 
-                 class="text-sm py-1 px-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                 :class="{'text-blue-500': currentChapter === chapterIndex && section.page === currentPageIndex}">
+                 class="section-item"
+                 :class="{'section-active': currentChapter === chapterIndex && section.page === currentPageIndex}">
               {{ section.title }}
             </div>
           </li>
@@ -51,6 +51,123 @@ defineEmits([
 </script>
 
 <style scoped>
+.chapter-nav {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: white;
+  border-right: 1px solid #e5e7eb;
+  z-index: 10;
+  padding: 1rem;
+  width: 16rem;
+  overflow-y: auto;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .chapter-nav {
+  background-color: #1f2937;
+  border-right-color: #374151;
+}
+
+.chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chapter-title {
+  font-weight: 500;
+}
+
+.close-button {
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.close-button:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .close-button:hover {
+  background-color: #374151;
+}
+
+.close-button:focus {
+  outline: none;
+}
+
+.chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chapter-item {
+  margin-bottom: 0.75rem;
+}
+
+.chapter-heading {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.chapter-heading:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .chapter-heading:hover {
+  background-color: #374151;
+}
+
+.chapter-heading-text {
+  font-weight: 500;
+}
+
+.chapter-active {
+  background-color: #ebf5ff;
+  color: #2563eb;
+}
+
+.dark .chapter-active {
+  background-color: rgba(30, 58, 138, 0.3);
+  color: #93c5fd;
+}
+
+.section-list {
+  padding-left: 1rem;
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.section-item {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+.section-item:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .section-item:hover {
+  background-color: #374151;
+}
+
+.section-active {
+  color: #3b82f6;
+}
+
 .chapter-nav {
   animation: slide-in 0.3s ease-out;
 }

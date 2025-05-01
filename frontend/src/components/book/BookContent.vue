@@ -1,10 +1,10 @@
 <template>
   <!-- 书籍内容部分 -->
-  <div class="book-content-wrapper flex-grow overflow-hidden">
-    <div class="book h-full">
-      <div class="book-content h-full">
+  <div class="book-content-wrapper">
+    <div class="book">
+      <div class="book-content">
         <!-- 主内容区 -->
-        <div class="page h-full overflow-y-auto relative bg-white dark:bg-gray-900" 
+        <div class="page" 
              @mouseup="$emit('handle-text-selection')" 
              @contextmenu.prevent
              :ref="el => { if(el) pageContentRef = el }">
@@ -49,15 +49,76 @@ watch(() => props.displayContent, () => {
 </script>
 
 <style scoped>
+.book-content-wrapper {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+.book {
+  height: 100%;
+}
+
+.book-content {
+  height: 100%;
+}
+
 .page {
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  background-color: white;
   padding: 2rem;
   line-height: 1.6;
+  color: #111827;
+}
+
+.dark .page {
+  background-color: #111827;
+  color: #e5e7eb;
+}
+
+:deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.dark :deep(h1), .dark :deep(h2), .dark :deep(h3), 
+.dark :deep(h4), .dark :deep(h5), .dark :deep(h6) {
+  color: #f3f4f6;
+}
+
+:deep(p) {
+  margin-bottom: 1rem;
+}
+
+:deep(ul), :deep(ol) {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+:deep(code) {
+  background-color: #f1f5f9;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.dark :deep(code) {
+  background-color: #1e293b;
+  color: #e2e8f0;
 }
 
 :deep(.highlight-keyword) {
   background-color: rgba(255, 255, 0, 0.3);
   border-radius: 2px;
   padding: 0 2px;
+}
+
+.dark :deep(.highlight-keyword) {
+  background-color: rgba(255, 255, 0, 0.2);
+  color: #fef08a;
 }
 
 :deep(.technical-term) {
@@ -68,12 +129,20 @@ watch(() => props.displayContent, () => {
   cursor: help;
 }
 
+.dark :deep(.technical-term) {
+  color: #60a5fa;
+}
+
 :deep(.math-formula) {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 0.5rem;
   margin: 0.5rem 0;
   border-radius: 4px;
   font-family: 'Courier New', Courier, monospace;
+}
+
+.dark :deep(.math-formula) {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 :deep(.highlight-yellow) {

@@ -1,43 +1,43 @@
 <template>
   <!-- 智能提问建议 - 可折叠 -->
-  <div class="border-t border-gray-200 dark:border-gray-700">
-    <div class="flex justify-between items-center px-4 py-2 cursor-pointer" @click="$emit('toggle-suggestions')">
-      <div class="flex items-center text-sm text-gray-600 dark:text-gray-300">
-        <i class="fas fa-lightbulb mr-2 text-yellow-500"></i>
+  <div class="suggestions-container">
+    <div class="suggestions-header" @click="$emit('toggle-suggestions')">
+      <div class="header-title">
+        <i class="fas fa-lightbulb suggestion-icon"></i>
         <span>推荐问题</span>
       </div>
-      <div class="text-gray-500">
+      <div class="toggle-icon">
         <i :class="showSuggestions ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
       </div>
     </div>
     
-    <div v-if="showSuggestions" class="px-4 py-2 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-hidden">
-      <div class="flex flex-wrap gap-2">
+    <div v-if="showSuggestions" class="suggestions-content">
+      <div class="suggestions-grid">
         <button 
           v-for="(suggestion, index) in questionSuggestions" 
           :key="index"
           @click="$emit('use-suggestion', suggestion.text)"
-          class="px-3 py-1.5 text-xs rounded-full border focus:outline-none transition-colors"
+          class="suggestion-button"
           :class="[
-            suggestion.level === 'basic' ? 'border-green-200 bg-green-50 text-green-800 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800' : 
-            suggestion.level === 'advanced' ? 'border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' :
-            'border-purple-200 bg-purple-50 text-purple-800 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800'
+            suggestion.level === 'basic' ? 'basic-level' : 
+            suggestion.level === 'advanced' ? 'advanced-level' :
+            'expert-level'
           ]"
         >
-          <span v-if="suggestion.level === 'basic'" class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
-          <span v-if="suggestion.level === 'advanced'" class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
-          <span v-if="suggestion.level === 'expert'" class="inline-block w-2 h-2 rounded-full bg-purple-500 mr-1.5"></span>
+          <span v-if="suggestion.level === 'basic'" class="level-indicator basic-indicator"></span>
+          <span v-if="suggestion.level === 'advanced'" class="level-indicator advanced-indicator"></span>
+          <span v-if="suggestion.level === 'expert'" class="level-indicator expert-indicator"></span>
           {{ suggestion.text }}
         </button>
       </div>
-      <div v-if="relatedHistoryQuestions.length > 0" class="mt-2">
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">之前问过：</p>
-        <div class="flex flex-wrap gap-2">
+      <div v-if="relatedHistoryQuestions.length > 0" class="history-container">
+        <p class="history-title">之前问过：</p>
+        <div class="history-grid">
           <button 
             v-for="(question, index) in relatedHistoryQuestions" 
             :key="index"
             @click="$emit('use-suggestion', question)"
-            class="px-3 py-1.5 text-xs rounded-full border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 focus:outline-none dark:bg-gray-800/30 dark:text-gray-300 dark:border-gray-700"
+            class="history-button"
           >
             {{ question }}
           </button>
@@ -65,3 +65,192 @@ defineProps({
 
 defineEmits(['toggle-suggestions', 'use-suggestion']);
 </script>
+
+<style scoped>
+.suggestions-container {
+  border-top: 1px solid #e5e7eb;
+}
+
+.dark .suggestions-container {
+  border-top-color: #374151;
+}
+
+.suggestions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.dark .header-title {
+  color: #d1d5db;
+}
+
+.suggestion-icon {
+  margin-right: 0.5rem;
+  color: #eab308;
+}
+
+.toggle-icon {
+  color: #6b7280;
+}
+
+.dark .toggle-icon {
+  color: #9ca3af;
+}
+
+.suggestions-content {
+  padding: 0.5rem 1rem;
+  border-top: 1px solid #e5e7eb;
+  transition: all 0.3s;
+  overflow: hidden;
+}
+
+.dark .suggestions-content {
+  border-top-color: #374151;
+}
+
+.suggestions-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.suggestion-button {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suggestion-button:focus {
+  outline: none;
+}
+
+.basic-level {
+  border-color: #bbf7d0;
+  background-color: #f0fdf4;
+  color: #166534;
+}
+
+.basic-level:hover {
+  background-color: #dcfce7;
+}
+
+.dark .basic-level {
+  background-color: rgba(22, 101, 52, 0.2);
+  color: #86efac;
+  border-color: #166534;
+}
+
+.advanced-level {
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.advanced-level:hover {
+  background-color: #dbeafe;
+}
+
+.dark .advanced-level {
+  background-color: rgba(30, 58, 138, 0.2);
+  color: #93c5fd;
+  border-color: #1e40af;
+}
+
+.expert-level {
+  border-color: #e9d5ff;
+  background-color: #faf5ff;
+  color: #6b21a8;
+}
+
+.expert-level:hover {
+  background-color: #f3e8ff;
+}
+
+.dark .expert-level {
+  background-color: rgba(107, 33, 168, 0.2);
+  color: #d8b4fe;
+  border-color: #6b21a8;
+}
+
+.level-indicator {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  margin-right: 0.375rem;
+}
+
+.basic-indicator {
+  background-color: #22c55e;
+}
+
+.advanced-indicator {
+  background-color: #3b82f6;
+}
+
+.expert-indicator {
+  background-color: #a855f7;
+}
+
+.history-container {
+  margin-top: 0.5rem;
+}
+
+.history-title {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.dark .history-title {
+  color: #9ca3af;
+}
+
+.history-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.history-button {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.history-button:hover {
+  background-color: #f3f4f6;
+}
+
+.history-button:focus {
+  outline: none;
+}
+
+.dark .history-button {
+  background-color: rgba(55, 65, 81, 0.3);
+  color: #d1d5db;
+  border-color: #4b5563;
+}
+
+.dark .history-button:hover {
+  background-color: rgba(55, 65, 81, 0.5);
+}
+</style>

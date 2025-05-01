@@ -1,15 +1,15 @@
 <template>
-  <div>
-    <h2 class="text-lg font-semibold">当前书籍信息</h2>
-    <div class="bg-gray-800 p-3 rounded-lg mb-3">
-      <div class="flex items-start">
+  <div class="book-info-container">
+    <h2 class="panel-title">当前书籍信息</h2>
+    <div class="book-card">
+      <div class="book-content">
         <!-- 书籍封面 -->
-        <div class="w-14 h-20 bg-gray-700 rounded-sm overflow-hidden mr-3 flex-shrink-0 flex items-center justify-center">
-          <i class="fas fa-book text-blue-400 text-xl"></i>
+        <div class="book-cover">
+          <i class="fas fa-book book-icon"></i>
         </div>
         
         <!-- 书籍信息 -->
-        <div class="flex-grow">
+        <div class="book-details">
           <BookBasicInfo 
             :title="currentBook.title"
             :author="currentBook.author"
@@ -64,3 +64,49 @@ function selectChapter(chapter) {
   // 这里可以添加更多处理逻辑，例如通知其他组件切换章节等
 }
 </script>
+
+<style scoped>
+.book-info-container {
+  margin-bottom: 1rem;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.book-card {
+  background-color: #1f2937; /* bg-gray-800 */
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.book-content {
+  display: flex;
+  align-items: flex-start;
+}
+
+.book-cover {
+  width: 3.5rem;
+  height: 5rem;
+  background-color: #374151; /* bg-gray-700 */
+  border-radius: 0.125rem;
+  overflow: hidden;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-icon {
+  color: #60a5fa; /* text-blue-400 */
+  font-size: 1.25rem;
+}
+
+.book-details {
+  flex-grow: 1;
+}
+</style>

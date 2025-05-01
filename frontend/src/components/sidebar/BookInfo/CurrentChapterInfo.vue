@@ -1,21 +1,21 @@
 <template>
-  <div class="mt-3 pt-3 border-t border-gray-700">
-    <div class="flex items-center justify-between text-sm mb-1">
-      <div class="relative">
-        <div class="flex items-center cursor-pointer" @click="toggleChapterMenu">
-          <span class="text-gray-300">本章: <span class="text-blue-300">{{ currentChapter }}</span></span>
-          <i class="fas fa-chevron-down ml-1.5 text-xs text-gray-400"></i>
+  <div class="chapter-info">
+    <div class="chapter-header">
+      <div class="chapter-menu-container">
+        <div class="chapter-selector" @click="toggleChapterMenu">
+          <span class="chapter-label">本章: <span class="current-chapter">{{ currentChapter }}</span></span>
+          <i class="fas fa-chevron-down dropdown-icon"></i>
         </div>
         
         <!-- 章节下拉菜单 -->
         <transition name="fade">
-          <div v-if="showChapterMenu" class="absolute top-full left-0 mt-1 w-48 bg-gray-800 rounded-md shadow-lg z-10 py-1 border border-gray-700">
-            <div class="max-h-[150px] overflow-y-auto">
+          <div v-if="showChapterMenu" class="chapter-menu">
+            <div class="chapter-list">
               <div 
                 v-for="(chapter, index) in chapters" 
                 :key="index"
-                class="px-3 py-1.5 hover:bg-gray-700 cursor-pointer text-xs text-gray-300 transition-colors"
-                :class="{ 'bg-blue-900/30 text-blue-300': chapter === currentChapter }"
+                class="chapter-item"
+                :class="{ 'active': chapter === currentChapter }"
                 @click="handleSelectChapter(chapter)"
               >
                 {{ chapter }}
@@ -26,19 +26,19 @@
       </div>
       
       <!-- 添加书签按钮 -->
-      <button @click="addBookmark" class="text-xs text-blue-400 hover:text-blue-300 transition-colors">
-        <i class="fas fa-bookmark mr-0.5"></i>
+      <button @click="addBookmark" class="bookmark-button">
+        <i class="fas fa-bookmark bookmark-icon"></i>
         添加书签
       </button>
     </div>
     
     <!-- 章节长度信息 -->
-    <div class="text-xs text-gray-400">
+    <div class="chapter-details">
       <span>本章: 第一章 量子计算概述</span>
-      <span class="mx-1.5">|</span>
+      <span class="separator">|</span>
       <span>阅读时长: 90分钟</span>
-      <span class="float-right text-blue-400 hover:text-blue-300 cursor-pointer transition-colors">
-        <i class="fas fa-bookmark mr-0.5"></i>
+      <span class="continue-reading">
+        <i class="fas fa-bookmark continue-icon"></i>
         <span>继续阅读</span>
       </span>
     </div>
@@ -46,7 +46,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref, defineProps, defineEmits, onMounted, onUnmounted } from 'vue';
 
 // 定义组件属性
 const props = defineProps({
@@ -105,6 +105,121 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.chapter-info {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #374151; /* border-gray-700 */
+}
+
+.chapter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.chapter-menu-container {
+  position: relative;
+}
+
+.chapter-selector {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.chapter-label {
+  color: #d1d5db; /* text-gray-300 */
+}
+
+.current-chapter {
+  color: #93c5fd; /* text-blue-300 */
+}
+
+.dropdown-icon {
+  margin-left: 0.375rem;
+  font-size: 0.75rem;
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.chapter-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  width: 12rem;
+  background-color: #1f2937; /* bg-gray-800 */
+  border-radius: 0.375rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  padding: 0.25rem 0;
+  border: 1px solid #374151; /* border-gray-700 */
+}
+
+.chapter-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.chapter-item {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  color: #d1d5db; /* text-gray-300 */
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chapter-item:hover {
+  background-color: #374151; /* hover:bg-gray-700 */
+}
+
+.chapter-item.active {
+  background-color: rgba(30, 58, 138, 0.3); /* bg-blue-900/30 */
+  color: #93c5fd; /* text-blue-300 */
+}
+
+.bookmark-button {
+  font-size: 0.75rem;
+  color: #60a5fa; /* text-blue-400 */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.bookmark-button:hover {
+  color: #93c5fd; /* hover:text-blue-300 */
+}
+
+.bookmark-icon {
+  margin-right: 0.125rem;
+}
+
+.chapter-details {
+  font-size: 0.75rem;
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.separator {
+  margin: 0 0.375rem;
+}
+
+.continue-reading {
+  float: right;
+  color: #60a5fa; /* text-blue-400 */
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.continue-reading:hover {
+  color: #93c5fd; /* hover:text-blue-300 */
+}
+
+.continue-icon {
+  margin-right: 0.125rem;
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s, transform 0.2s;

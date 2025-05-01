@@ -1,12 +1,12 @@
 <template>
-  <div class="bg-gray-900/30 dark:bg-gray-800/30 p-3 rounded-lg">
-    <h2 class="text-lg font-semibold mb-3 flex items-center">
-      <i class="fas fa-server text-orange-500 mr-2"></i>
+  <div class="system-status-panel">
+    <h2 class="panel-title">
+      <i class="fas fa-server server-icon"></i>
       系统状态
     </h2>
     
     <!-- 摄像头预览小窗 -->
-    <div class="camera-preview-container mb-2">
+    <div class="camera-preview-container">
       <CameraPreview 
         :isLarge="showLargeCamera" 
         @toggleSize="showLargeCamera = !showLargeCamera"
@@ -16,13 +16,13 @@
     </div>
     
     <!-- 系统状态总结提示 -->
-    <div class="system-status-summary mb-3 px-2.5 py-1.5 rounded-md flex items-center" 
+    <div class="system-status-summary" 
         :class="systemStatusClass">
-      <i class="fas mr-1.5 text-sm" :class="systemStatusIcon"></i>
-      <span class="text-xs font-medium">{{systemStatusMessage}}</span>
+      <i class="fas status-icon" :class="systemStatusIcon"></i>
+      <span class="status-message">{{systemStatusMessage}}</span>
     </div>
     
-    <div class="space-y-3.5">
+    <div class="status-components">
       <!-- 摄像头状态组件 -->
       <CameraStatus />
       
@@ -48,7 +48,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import CameraPreview from '../../CameraOCR.vue';
+import CameraPreview from '../../ocr/CameraOCR.vue';
 import CameraStatus from './CameraStatus.vue';
 import PageDetectionStatus from './PageDetectionStatus.vue';
 import AIProcessingStatus from './AIProcessingStatus.vue';
@@ -78,8 +78,8 @@ function handleOcrStatus(status) {
 // 系统状态样式与图标
 const systemStatusClass = computed(() => {
   return isAIProcessing.value 
-    ? 'bg-blue-500/20 text-blue-300' 
-    : 'bg-green-500/20 text-green-300';
+    ? 'processing' 
+    : 'normal';
 });
 
 const systemStatusIcon = computed(() => {
@@ -180,3 +180,67 @@ function simulateAIProcessing() {
   }, 800);
 }
 </script>
+
+<style scoped>
+.system-status-panel {
+  background-color: rgba(17, 24, 39, 0.3); /* bg-gray-900/30 */
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.server-icon {
+  color: #f97316; /* text-orange-500 */
+  margin-right: 0.5rem;
+}
+
+.camera-preview-container {
+  margin-bottom: 0.5rem;
+}
+
+.system-status-summary {
+  margin-bottom: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+}
+
+.system-status-summary.processing {
+  background-color: rgba(59, 130, 246, 0.2); /* bg-blue-500/20 */
+  color: #93c5fd; /* text-blue-300 */
+}
+
+.system-status-summary.normal {
+  background-color: rgba(34, 197, 94, 0.2); /* bg-green-500/20 */
+  color: #86efac; /* text-green-300 */
+}
+
+.status-icon {
+  margin-right: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.status-message {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-components {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* 深色模式 */
+:global(.dark) .system-status-panel {
+  background-color: rgba(31, 41, 55, 0.3); /* dark:bg-gray-800/30 */
+}
+</style>

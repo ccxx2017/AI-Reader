@@ -17,11 +17,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useEventBus } from '../composables/useEventBus';
+import { ref, onMounted, inject } from 'vue';
+import { useBookStore } from '../../store/modules/book';
+import { useNotesStore } from '../../store/modules/notes';
+import { useChatStore } from '../../store/modules/chat';
+
+// 获取Store
+const bookStore = useBookStore();
+const notesStore = useNotesStore();
+const chatStore = useChatStore();
 
 const selectionMenuRef = ref(null);
-const eventBus = useEventBus();
 
 // 高亮选中文本
 function highlightSelection() {
@@ -41,10 +47,13 @@ function highlightSelection() {
   // 隐藏菜单
   hideSelectionMenu();
   
-  // 通知高亮已添加
-  eventBus.emit('text-highlighted', {
+  // 保存高亮信息到store
+  bookStore.addHighlight({
+    id: Date.now().toString(),
     text: selection.toString(),
-    element: highlightSpan
+    bookId: bookStore.currentBook?.id,
+    chapterId: bookStore.currentChapter?.id,
+    timestamp: new Date().toISOString()
   });
 }
 
@@ -56,10 +65,15 @@ function addNote() {
   // 获取选择的文本
   const selectedText = selection.toString();
   
-  // 触发添加笔记事件
-  eventBus.emit('add-note', {
+  // 添加笔记到store
+  notesStore.addNote({
+    id: Date.now().toString(),
     text: selectedText,
-    position: getSelectionPosition()
+    bookId: bookStore.currentBook?.id,
+    chapterId: bookStore.currentChapter?.id,
+    content: '',
+    position: getSelectionPosition(),
+    timestamp: new Date().toISOString()
   });
   
   // 隐藏菜单
@@ -91,14 +105,14 @@ function copyText() {
   navigator.clipboard.writeText(selection.toString())
     .then(() => {
       // 显示复制成功提示
-      eventBus.emit('show-toast', {
+      bookStore.showToast({
         message: '已复制到剪贴板',
         type: 'success'
       });
     })
     .catch(err => {
       console.error('复制失败:', err);
-      eventBus.emit('show-toast', {
+      bookStore.showToast({
         message: '复制失败',
         type: 'error'
       });
@@ -114,9 +128,7 @@ function askAI() {
   if (!selection.toString().trim()) return;
   
   // 发送选中文本到AI聊天
-  eventBus.emit('ask-ai', {
-    text: selection.toString()
-  });
+  chatStore.askQuestion(selection.toString());
   
   // 隐藏菜单
   hideSelectionMenu();
@@ -138,3 +150,47 @@ onMounted(() => {
   });
 });
 </script>
+
+<style scoped>
+.selection-menu {
+  position: absolute;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  padding: 6px;
+  z-index: 1000;
+}
+
+.selection-menu button {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  margin: 0 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.selection-menu button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.selection-menu.hidden {
+  display: none;
+}
+
+/* 深色模式适配 */
+:root.dark .selection-menu {
+  background-color: #1f2937;
+}
+
+:root.dark .selection-menu button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:root.dark .selection-menu i.fa-copy {
+  color: #d1d5db;
+}
+</style>

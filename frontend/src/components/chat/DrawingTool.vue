@@ -1,19 +1,19 @@
 <template>
   <!-- 绘图工具面板 -->
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[600px] max-w-full">
-      <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-        <h3 class="text-lg font-medium">绘图工具</h3>
-        <button @click="$emit('close')" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none">
+  <div class="drawing-tool-overlay">
+    <div class="drawing-panel">
+      <div class="panel-header">
+        <h3 class="panel-title">绘图工具</h3>
+        <button @click="$emit('close')" class="close-button">
           <i class="fas fa-times"></i>
         </button>
       </div>
       
-      <div class="p-4">
+      <div class="panel-content">
         <div class="canvas-container">
           <canvas 
             ref="canvas" 
-            class="drawing-canvas border border-gray-300 dark:border-gray-600 rounded-lg" 
+            class="drawing-canvas" 
             width="560" 
             height="320"
             @mousedown="startDrawing"
@@ -26,47 +26,47 @@
           ></canvas>
         </div>
         
-        <div class="drawing-tools flex items-center justify-between mt-4">
-          <div class="flex items-center space-x-3">
-            <div class="color-picker flex space-x-2">
+        <div class="drawing-tools">
+          <div class="tool-controls">
+            <div class="color-picker">
               <button 
                 v-for="color in colors" 
                 :key="color" 
                 @click="setColor(color)"
-                class="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600"
-                :class="{'ring-2 ring-blue-500': currentColor === color}"
+                class="color-button"
+                :class="{'selected-color': currentColor === color}"
                 :style="{backgroundColor: color}"
               ></button>
             </div>
             
-            <div class="brush-size flex items-center space-x-2 ml-4">
+            <div class="brush-size">
               <button 
                 v-for="size in brushSizes" 
                 :key="size" 
                 @click="setBrushSize(size)"
-                class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700"
-                :class="{'bg-blue-100 dark:bg-blue-900': currentSize === size}"
+                class="size-button"
+                :class="{'selected-size': currentSize === size}"
               >
                 <div 
-                  class="rounded-full bg-gray-800 dark:bg-gray-300" 
+                  class="size-indicator" 
                   :style="{width: `${size}px`, height: `${size}px`}"
                 ></div>
               </button>
             </div>
           </div>
           
-          <div class="actions flex space-x-2">
+          <div class="action-buttons">
             <button 
               @click="clearCanvas" 
-              class="px-3 py-1.5 rounded-md text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none transition-colors"
+              class="clear-button"
             >
-              <i class="fas fa-trash-alt mr-1"></i>清除
+              <i class="fas fa-trash-alt action-icon"></i>清除
             </button>
             <button 
               @click="$emit('submit')" 
-              class="px-3 py-1.5 rounded-md text-sm bg-blue-500 text-white hover:bg-blue-600 focus:outline-none transition-colors"
+              class="submit-button"
             >
-              <i class="fas fa-paper-plane mr-1"></i>提交
+              <i class="fas fa-paper-plane action-icon"></i>提交
             </button>
           </div>
         </div>
@@ -196,9 +196,200 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.drawing-tool-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.drawing-panel {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 600px;
+  max-width: 100%;
+}
+
+.dark .drawing-panel {
+  background-color: #1f2937;
+}
+
+.panel-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dark .panel-header {
+  border-bottom-color: #374151;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.close-button {
+  padding: 0.5rem;
+  border-radius: 9999px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.close-button:hover {
+  background-color: #f3f4f6;
+}
+
+.dark .close-button:hover {
+  background-color: #374151;
+}
+
+.close-button:focus {
+  outline: none;
+}
+
+.panel-content {
+  padding: 1rem;
+}
+
+.canvas-container {
+  width: 100%;
+}
+
 .drawing-canvas {
   width: 100%;
   height: 320px;
   cursor: crosshair;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+}
+
+.dark .drawing-canvas {
+  border-color: #4b5563;
+}
+
+.drawing-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.tool-controls {
+  display: flex;
+  align-items: center;
+}
+
+.color-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.color-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+}
+
+.dark .color-button {
+  border-color: #4b5563;
+}
+
+.selected-color {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+.brush-size {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1rem;
+}
+
+.size-button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f3f4f6;
+  border: none;
+  cursor: pointer;
+}
+
+.dark .size-button {
+  background-color: #374151;
+}
+
+.selected-size {
+  background-color: #dbeafe;
+}
+
+.dark .selected-size {
+  background-color: #1e3a8a;
+}
+
+.size-indicator {
+  border-radius: 9999px;
+  background-color: #1f2937;
+}
+
+.dark .size-indicator {
+  background-color: #d1d5db;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.clear-button, .submit-button {
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.clear-button {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.dark .clear-button {
+  background-color: #374151;
+  color: #e5e7eb;
+}
+
+.clear-button:hover {
+  background-color: #d1d5db;
+}
+
+.dark .clear-button:hover {
+  background-color: #4b5563;
+}
+
+.submit-button {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.submit-button:hover {
+  background-color: #2563eb;
+}
+
+.action-icon {
+  margin-right: 0.25rem;
 }
 </style>

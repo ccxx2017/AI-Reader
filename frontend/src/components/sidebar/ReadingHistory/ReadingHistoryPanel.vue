@@ -1,9 +1,9 @@
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-3">
-      <h2 class="text-lg font-semibold">阅读历史</h2>
+  <div class="reading-history-panel">
+    <div class="panel-header">
+      <h2 class="panel-title">阅读历史</h2>
       <!-- 视图切换按钮 -->
-      <div class="flex items-center">
+      <div class="view-mode-switcher">
         <button 
           @click="historyViewMode = 'list'" 
           class="view-mode-btn" 
@@ -44,8 +44,8 @@
     />
     
     <!-- 没有历史记录时的提示 -->
-    <div v-if="filteredReadingHistory.length === 0" class="py-8 text-center text-gray-400">
-      <i class="fas fa-search mb-2 text-xl"></i>
+    <div v-if="filteredReadingHistory.length === 0" class="empty-history">
+      <i class="fas fa-search empty-icon"></i>
       <p>没有找到匹配的阅读历史记录</p>
     </div>
   </div>
@@ -166,11 +166,56 @@ function continueReading(book) {
 </script>
 
 <style scoped>
+.reading-history-panel {
+  margin-bottom: 1rem;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.view-mode-switcher {
+  display: flex;
+  align-items: center;
+}
+
 .view-mode-btn {
-  @apply w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-400 transition-colors;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af; /* text-gray-400 */
+  transition: color 0.2s;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.view-mode-btn:hover {
+  color: #60a5fa; /* hover:text-blue-400 */
 }
 
 .view-mode-btn.active {
-  @apply text-blue-500;
+  color: #3b82f6; /* text-blue-500 */
+}
+
+.empty-history {
+  padding: 2rem 0;
+  text-align: center;
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.empty-icon {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
 }
 </style>

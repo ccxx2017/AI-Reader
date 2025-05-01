@@ -1,41 +1,41 @@
 <template>
-  <div class="space-y-2">
+  <div class="history-list">
     <div 
       v-for="book in filteredReadingHistory" 
       :key="book.id" 
-      class="bg-gray-800/60 rounded-lg overflow-hidden"
+      class="book-item"
     >
       <!-- 书籍标题栏 - 可点击展开/折叠 -->
       <div 
         @click="toggleBookHistory(book.id)"
-        class="p-2.5 flex items-center cursor-pointer hover:bg-gray-700/40 transition-colors duration-200 group"
+        class="book-header"
       >
         <!-- 书籍封面 -->
-        <div class="w-10 h-14 bg-gray-700 rounded-sm overflow-hidden mr-3 flex-shrink-0 flex items-center justify-center">
-          <i class="fas fa-book text-blue-400"></i>
+        <div class="book-cover">
+          <i class="fas fa-book book-icon"></i>
         </div>
         
         <!-- 书籍信息 -->
-        <div class="flex-grow">
-          <div class="text-sm font-medium text-blue-300 mb-0.5">{{ book.title }}</div>
-          <div class="text-xs text-gray-300 mb-1">{{ book.author }}</div>
-          <div class="flex text-xs text-gray-400">
+        <div class="book-info">
+          <div class="book-title">{{ book.title }}</div>
+          <div class="book-author">{{ book.author }}</div>
+          <div class="book-meta">
             <span>上次阅读: {{ formatRelativeTime(book.lastRead) }}</span>
-            <span class="mx-1.5">|</span>
+            <span class="meta-divider">|</span>
             <span>进度: {{ book.progress }}%</span>
           </div>
         </div>
         
         <!-- 展开/折叠指示器 -->
-        <div class="mr-2">
-          <i class="fas fa-chevron-down text-gray-400 group-hover:text-gray-300 transition-transform duration-200"
-             :class="{ 'transform rotate-180': book.expanded }"></i>
+        <div class="expand-indicator">
+          <i class="fas fa-chevron-down chevron-icon"
+             :class="{ 'rotate-icon': book.expanded }"></i>
         </div>
         
         <!-- 继续阅读按钮 -->
         <button 
           @click.stop="$emit('continueReading', book)" 
-          class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition-colors"
+          class="continue-button"
         >
           继续阅读
         </button>
@@ -44,43 +44,43 @@
       <!-- 展开的详细信息 -->
       <div 
         v-if="book.expanded" 
-        class="border-t border-gray-700 p-2.5 text-sm"
+        class="book-details"
       >
         <!-- 会话记录标题 -->
-        <div class="flex items-center justify-between mb-2">
-          <div class="text-xs text-gray-300">阅读会话记录</div>
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/70 text-blue-300">
+        <div class="sessions-header">
+          <div class="sessions-title">阅读会话记录</div>
+          <span class="sessions-count">
             共 {{ book.sessions ? book.sessions.length : 0 }} 次会话
           </span>
         </div>
         
         <!-- 会话记录列表 -->
-        <div v-if="book.sessions && book.sessions.length > 0" class="space-y-2">
+        <div v-if="book.sessions && book.sessions.length > 0" class="sessions-list">
           <div 
             v-for="(session, sessionIndex) in book.sessions" 
             :key="`session-${book.id}-${sessionIndex}`"
-            class="text-xs p-2 bg-gray-700/40 rounded"
+            class="session-item"
           >
-            <div class="flex justify-between mb-1">
-              <span class="text-gray-300">{{ formatTimestamp(session.date) }}</span>
-              <span class="text-gray-400">阅读时长: {{ session.duration }}分钟</span>
+            <div class="session-header">
+              <span class="session-date">{{ formatTimestamp(session.date) }}</span>
+              <span class="session-duration">阅读时长: {{ session.duration }}分钟</span>
             </div>
-            <div class="text-gray-400">
+            <div class="session-pages">
               阅读了 {{ session.pagesRead.join(', ') }} 页
             </div>
-            <div v-if="session.notes > 0" class="text-gray-400">
+            <div v-if="session.notes > 0" class="session-notes">
               添加了 {{ session.notes }} 条笔记
             </div>
           </div>
         </div>
         
         <!-- 没有会话记录时的提示 -->
-        <div v-else class="text-center py-2 text-gray-500 text-xs">
-          <i class="fas fa-info-circle mr-1"></i> 暂无详细会话记录
+        <div v-else class="no-sessions">
+          <i class="fas fa-info-circle info-icon"></i> 暂无详细会话记录
         </div>
         
         <!-- 书籍统计信息 -->
-        <div class="mt-2 pt-2 border-t border-gray-700 flex justify-between text-xs text-gray-400">
+        <div class="book-stats">
           <span>总阅读时长: {{ book.totalReadingTime }}分钟</span>
           <span>首次阅读: {{ formatTimestamp(book.sessions && book.sessions.length > 0 ? book.sessions[book.sessions.length - 1].date : book.lastRead) }}</span>
         </div>
@@ -159,3 +159,183 @@ function formatTimestamp(timestamp) {
   return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${timeStr}`;
 }
 </script>
+
+<style scoped>
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.book-item {
+  background-color: rgba(31, 41, 55, 0.6); /* bg-gray-800/60 */
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.book-header {
+  padding: 0.625rem;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.book-header:hover {
+  background-color: rgba(55, 65, 81, 0.4); /* hover:bg-gray-700/40 */
+}
+
+.book-cover {
+  width: 2.5rem;
+  height: 3.5rem;
+  background-color: #374151; /* bg-gray-700 */
+  border-radius: 0.125rem;
+  overflow: hidden;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-icon {
+  color: #60a5fa; /* text-blue-400 */
+}
+
+.book-info {
+  flex-grow: 1;
+}
+
+.book-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #93c5fd; /* text-blue-300 */
+  margin-bottom: 0.125rem;
+}
+
+.book-author {
+  font-size: 0.75rem;
+  color: #d1d5db; /* text-gray-300 */
+  margin-bottom: 0.25rem;
+}
+
+.book-meta {
+  display: flex;
+  font-size: 0.75rem;
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.meta-divider {
+  margin: 0 0.375rem;
+}
+
+.expand-indicator {
+  margin-right: 0.5rem;
+}
+
+.chevron-icon {
+  color: #9ca3af; /* text-gray-400 */
+  transition: transform 0.2s;
+}
+
+.book-header:hover .chevron-icon {
+  color: #d1d5db; /* group-hover:text-gray-300 */
+}
+
+.rotate-icon {
+  transform: rotate(180deg);
+}
+
+.continue-button {
+  font-size: 0.75rem;
+  background-color: #2563eb; /* bg-blue-600 */
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.continue-button:hover {
+  background-color: #3b82f6; /* hover:bg-blue-500 */
+}
+
+.book-details {
+  border-top: 1px solid #374151; /* border-gray-700 */
+  padding: 0.625rem;
+  font-size: 0.875rem;
+}
+
+.sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.sessions-title {
+  font-size: 0.75rem;
+  color: #d1d5db; /* text-gray-300 */
+}
+
+.sessions-count {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background-color: rgba(30, 58, 138, 0.7); /* bg-blue-900/70 */
+  color: #93c5fd; /* text-blue-300 */
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-item {
+  font-size: 0.75rem;
+  padding: 0.5rem;
+  background-color: rgba(55, 65, 81, 0.4); /* bg-gray-700/40 */
+  border-radius: 0.25rem;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.session-date {
+  color: #d1d5db; /* text-gray-300 */
+}
+
+.session-duration {
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.session-pages, .session-notes {
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.no-sessions {
+  text-align: center;
+  padding: 0.5rem 0;
+  color: #6b7280; /* text-gray-500 */
+  font-size: 0.75rem;
+}
+
+.info-icon {
+  margin-right: 0.25rem;
+}
+
+.book-stats {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #374151; /* border-gray-700 */
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #9ca3af; /* text-gray-400 */
+}
+</style>

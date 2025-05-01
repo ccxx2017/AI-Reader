@@ -1,20 +1,20 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-2">
-      <h2 class="text-lg font-semibold">我的笔记</h2>
-      <div class="flex items-center">
+    <div class="panel-header">
+      <h2 class="panel-title">我的笔记</h2>
+      <div class="action-buttons">
         <button 
           @click="createNewNote" 
-          class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center"
+          class="new-note-button"
         >
-          <i class="fas fa-plus-circle mr-1"></i>
+          <i class="fas fa-plus-circle plus-icon"></i>
           新建笔记
         </button>
       </div>
     </div>
     
     <!-- 笔记列表 -->
-    <div class="space-y-2">
+    <div class="notes-list">
       <NoteItem 
         v-for="note in notes" 
         :key="note.id" 
@@ -26,12 +26,12 @@
     </div>
     
     <!-- 没有笔记时的提示 -->
-    <div v-if="notes.length === 0" class="py-8 text-center text-gray-400">
-      <i class="fas fa-sticky-note mb-2 text-xl"></i>
+    <div v-if="notes.length === 0" class="empty-notes-message">
+      <i class="fas fa-sticky-note empty-icon"></i>
       <p>暂无笔记</p>
       <button 
         @click="createNewNote" 
-        class="mt-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+        class="create-note-button"
       >
         开始记录笔记
       </button>
@@ -137,3 +137,72 @@ function closeNoteEditor() {
   editingNote.value = null;
 }
 </script>
+
+<style scoped>
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+}
+
+.new-note-button {
+  font-size: 0.75rem;
+  color: #60a5fa; /* text-blue-400 */
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.new-note-button:hover {
+  color: #93c5fd; /* hover:text-blue-300 */
+}
+
+.plus-icon {
+  margin-right: 0.25rem;
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.empty-notes-message {
+  padding: 2rem 0;
+  text-align: center;
+  color: #9ca3af; /* text-gray-400 */
+}
+
+.empty-icon {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.create-note-button {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #60a5fa; /* text-blue-400 */
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.create-note-button:hover {
+  color: #93c5fd; /* hover:text-blue-300 */
+}
+</style>

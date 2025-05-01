@@ -1,8 +1,8 @@
 <template>
   <div>
-    <div class="flex justify-between items-center mb-2">
-      <h2 class="text-lg font-semibold">个性化学习状态</h2>
-      <button class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center" @click="showLearningStatistics = !showLearningStatistics">
+    <div class="panel-header">
+      <h2 class="panel-title">个性化学习状态</h2>
+      <button class="statistics-toggle" @click="showLearningStatistics = !showLearningStatistics">
         <i class="fas" :class="showLearningStatistics ? 'fa-chart-bar' : 'fa-chart-line'"></i>
         {{ showLearningStatistics ? '查看摘要' : '查看统计' }}
       </button>
@@ -32,7 +32,7 @@
     
     <!-- 学习统计展开区域 -->
     <transition name="slide-fade">
-      <div v-if="showLearningStatistics" class="mt-3 bg-gray-800/50 p-3 rounded-lg border border-gray-700/50">
+      <div v-if="showLearningStatistics" class="statistics-container">
         <LearningStatistics :statisticsData="learningState.statistics" />
       </div>
     </transition>
@@ -113,6 +113,41 @@ const conceptsMastery = computed(() => {
 </script>
 
 <style scoped>
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.panel-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.statistics-toggle {
+  font-size: 0.75rem;
+  color: #60a5fa; /* text-blue-400 */
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.statistics-toggle:hover {
+  color: #93c5fd; /* hover:text-blue-300 */
+}
+
+.statistics-container {
+  margin-top: 0.75rem;
+  background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(55, 65, 81, 0.5); /* border border-gray-700/50 */
+}
+
 .slide-fade-enter-active,
 .slide-fade-leave-active {
   transition: opacity 0.3s, transform 0.3s;

@@ -1,7 +1,7 @@
 <template>
   <!-- 右侧AI助手聊天面板 -->
-  <div id="chat-panel" class="panel-container flex-1 min-w-[300px] overflow-hidden">
-    <div class="card h-full overflow-hidden flex flex-col">
+  <div id="chat-panel" class="chat-panel">
+    <div class="chat-card">
       <!-- 顶部控制栏 -->
       <ChatHeader @open-settings="openSettingsPanel" />
       
@@ -215,7 +215,7 @@ function explainSimpler() {
     messages.value.push({
       id: Date.now(),
       type: 'assistant',
-      content: '简单来说，传统机器学习像是按照特定规则做决策，你需要告诉它哪些特征重要；而深度学习就像人脑，能自己学习哪些特征重要，但需要大量数据和强大计算机。当你有海量数据和足够计算资源时，选择深度学习；数据少或需要清晰解释决策过程时，选传统方法。',
+      content: '简单来说，传统机器学习像是按照特定规则做决策，你需要告诉它哪些特征重要；而深度学习就像人脑，能自己学习哪些特征重要，但需要大量数据和强大计算机。当你有海量数据和足够计算资源时，选择深度学习；数据少或需要模型具有高解释性，传统方法可能是更好的选择。',
       timestamp: Date.now(),
       favorited: false
     });
@@ -363,14 +363,23 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.card {
+.chat-panel {
+  flex: 1;
+  min-width: 300px;
+  overflow: hidden;
+}
+
+.chat-card {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background-color: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  height: 100%;
 }
 
-.dark .card {
+.dark .chat-card {
   background-color: #1f2937;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }

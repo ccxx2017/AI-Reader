@@ -1,18 +1,18 @@
 <template>
   <div class="sidebar-icons">
-    <div class="sidebar-icon w-8 h-8 flex items-center justify-center cursor-pointer" title="拍照">
+    <div class="sidebar-icon" title="拍照">
       <i class="fas fa-camera"></i>
     </div>
-    <div class="sidebar-icon w-8 h-8 flex items-center justify-center cursor-pointer" title="笔记">
+    <div class="sidebar-icon" title="笔记">
       <i class="fas fa-sticky-note"></i>
     </div>
-    <div class="sidebar-icon w-8 h-8 flex items-center justify-center cursor-pointer" title="书籍">
+    <div class="sidebar-icon" title="书籍">
       <i class="fas fa-book"></i>
     </div>
-    <div class="sidebar-icon w-8 h-8 flex items-center justify-center cursor-pointer" title="历史">
+    <div class="sidebar-icon" title="历史">
       <i class="fas fa-history"></i>
     </div>
-    <div class="sidebar-icon w-8 h-8 flex items-center justify-center cursor-pointer" title="设置">
+    <div class="sidebar-icon" title="设置">
       <i class="fas fa-cog"></i>
     </div>
   </div>
@@ -32,6 +32,12 @@
 }
 
 .sidebar-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   margin-bottom: 1rem;
   background-color: #2563eb;
   color: white;

@@ -1,21 +1,21 @@
 <template>
   <!-- 页面检测状态 - 优化后的进度指示 -->
-  <div class="status-container bg-gray-800/50 dark:bg-gray-700/50 p-2.5 rounded-lg">
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-orange-500 dark:text-orange-400 font-medium flex items-center">
-        <i class="fas fa-file-alt mr-1.5"></i>
+  <div class="status-container">
+    <div class="status-header">
+      <span class="status-title">
+        <i class="fas fa-file-alt file-icon"></i>
         页面检测
       </span>
-      <div class="flex items-center">
-        <span class="status-indicator" :class="statusColor"></span>
-        <span class="text-sm text-white px-2 py-0.5 rounded-full" :class="statusBgColor">
+      <div class="status-indicator-wrapper">
+        <span class="status-indicator" :class="statusColorClass"></span>
+        <span class="status-label" :class="statusBgColorClass">
           {{ statusText }}
         </span>
       </div>
     </div>
-    <div class="progress-bar mt-1.5 bg-gray-700 h-1 w-full rounded">
-      <div class="h-full rounded transition-all duration-300" 
-           :class="progressColor"
+    <div class="progress-bar">
+      <div class="progress-fill" 
+           :class="progressColorClass"
            :style="{width: `${detectionProgress}%`}"></div>
     </div>
   </div>
@@ -45,50 +45,50 @@ const statusText = computed(() => {
 });
 
 // 状态颜色
-const statusColor = computed(() => {
+const statusColorClass = computed(() => {
   switch (detectionStatus.value) {
     case 'preparing':
-      return 'bg-yellow-500';
+      return 'preparing';
     case 'detecting':
-      return 'bg-blue-500 pulse-animation';
+      return 'detecting';
     case 'complete':
-      return 'bg-green-500';
+      return 'complete';
     case 'error':
-      return 'bg-red-500';
+      return 'error';
     default:
-      return 'bg-gray-500';
+      return 'default';
   }
 });
 
 // 状态背景色
-const statusBgColor = computed(() => {
+const statusBgColorClass = computed(() => {
   switch (detectionStatus.value) {
     case 'preparing':
-      return 'bg-yellow-600';
+      return 'preparing-bg';
     case 'detecting':
-      return 'bg-blue-600';
+      return 'detecting-bg';
     case 'complete':
-      return 'bg-green-600';
+      return 'complete-bg';
     case 'error':
-      return 'bg-red-600';
+      return 'error-bg';
     default:
-      return 'bg-gray-600';
+      return 'default-bg';
   }
 });
 
 // 进度条颜色
-const progressColor = computed(() => {
+const progressColorClass = computed(() => {
   switch (detectionStatus.value) {
     case 'preparing':
-      return 'bg-yellow-500';
+      return 'preparing-progress';
     case 'detecting':
-      return 'bg-blue-500';
+      return 'detecting-progress';
     case 'complete':
-      return 'bg-green-500';
+      return 'complete-progress';
     case 'error':
-      return 'bg-red-500';
+      return 'error-progress';
     default:
-      return 'bg-gray-500';
+      return 'default-progress';
   }
 });
 
@@ -96,11 +96,123 @@ const progressColor = computed(() => {
 </script>
 
 <style scoped>
+.status-container {
+  background-color: rgba(31, 41, 55, 0.5); /* bg-gray-800/50 */
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-title {
+  font-size: 0.875rem;
+  color: #f97316; /* text-orange-500 */
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.file-icon {
+  margin-right: 0.375rem;
+}
+
+.status-indicator-wrapper {
+  display: flex;
+  align-items: center;
+}
+
 .status-indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   margin-right: 0.375rem;
+}
+
+.status-indicator.preparing {
+  background-color: #eab308; /* bg-yellow-500 */
+}
+
+.status-indicator.detecting {
+  background-color: #3b82f6; /* bg-blue-500 */
+  animation: pulse 1.5s infinite;
+}
+
+.status-indicator.complete {
+  background-color: #22c55e; /* bg-green-500 */
+}
+
+.status-indicator.error {
+  background-color: #ef4444; /* bg-red-500 */
+}
+
+.status-indicator.default {
+  background-color: #6b7280; /* bg-gray-500 */
+}
+
+.status-label {
+  font-size: 0.875rem;
+  color: white;
+  padding: 0 0.5rem;
+  line-height: 1.5;
+  border-radius: 9999px;
+}
+
+.status-label.preparing-bg {
+  background-color: #ca8a04; /* bg-yellow-600 */
+}
+
+.status-label.detecting-bg {
+  background-color: #2563eb; /* bg-blue-600 */
+}
+
+.status-label.complete-bg {
+  background-color: #16a34a; /* bg-green-600 */
+}
+
+.status-label.error-bg {
+  background-color: #dc2626; /* bg-red-600 */
+}
+
+.status-label.default-bg {
+  background-color: #4b5563; /* bg-gray-600 */
+}
+
+.progress-bar {
+  margin-top: 0.375rem;
+  background-color: #374151; /* bg-gray-700 */
+  height: 0.25rem;
+  width: 100%;
+  border-radius: 0.25rem;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 0.25rem;
+  transition: width 0.3s ease-in-out;
+}
+
+.progress-fill.preparing-progress {
+  background-color: #eab308; /* bg-yellow-500 */
+}
+
+.progress-fill.detecting-progress {
+  background-color: #3b82f6; /* bg-blue-500 */
+}
+
+.progress-fill.complete-progress {
+  background-color: #22c55e; /* bg-green-500 */
+}
+
+.progress-fill.error-progress {
+  background-color: #ef4444; /* bg-red-500 */
+}
+
+.progress-fill.default-progress {
+  background-color: #6b7280; /* bg-gray-500 */
 }
 
 .pulse-animation {
@@ -122,5 +234,14 @@ const progressColor = computed(() => {
     transform: scale(0.95);
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
+}
+
+/* 深色模式 */
+:global(.dark) .status-container {
+  background-color: rgba(55, 65, 81, 0.5); /* dark:bg-gray-700/50 */
+}
+
+:global(.dark) .status-title {
+  color: #fb923c; /* dark:text-orange-400 */
 }
 </style>

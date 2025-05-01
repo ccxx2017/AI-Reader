@@ -7,21 +7,21 @@
     <SideNav />
     
     <!-- 主内容区域 -->
-    <div class="container mx-auto px-4 py-6 main-content-container">
-      <div class="main-content flex">
+    <div class="main-content-container">
+      <div class="main-content">
         <!-- 左侧边栏 - 系统状态 -->
         <Sidebar />
         
         <!-- 中间和右侧区域容器 -->
-        <div class="flex flex-1 min-w-0">
+        <div class="content-container" :class="{ 'content-expanded': !uiStore.isSidebarCollapsed, 'content-collapsed': uiStore.isSidebarCollapsed }">
           <!-- 中间 - 书籍显示 -->
-          <BookPanel />
+          <BookPanel id="book-panel" />
           
           <!-- 可调整大小的分隔线 -->
-          <div id="resizer" class="resizer w-2 bg-gray-200 hover:bg-blue-500 cursor-col-resize"></div>
+          <div id="resizer" class="resizer"></div>
           
           <!-- 右侧 - AI助手聊天 -->
-          <ChatPanel />
+          <ChatPanel id="chat-panel" />
         </div>
       </div>
     </div>
@@ -29,14 +29,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, provide } from 'vue';
-import NavBar from './components/NavBar.vue';
-import SideNav from './components/SideNav.vue';
-import Sidebar from './components/Sidebar.vue';
-import BookPanel from './components/BookPanel.vue';
-import ChatPanel from './components/ChatPanel.vue';
+import { onMounted, onUnmounted, nextTick, provide } from 'vue';
+import NavBar from './components/layout/NavBar.vue';
+import SideNav from './components/layout/SideNav.vue';
+import Sidebar from './components/sidebar/index.vue';
+import BookPanel from './components/book/index.vue';
+import ChatPanel from './components/chat/index.vue';
 import { useTheme } from './composables/useTheme';
 import { useBookPages } from './store/bookPages';
+import { useUIStore } from './store/modules/ui';
+
+// 获取UI状态
+const uiStore = useUIStore();
 
 // 使用主题相关的组合式API
 const { currentTheme, toggleTheme, setTheme } = useTheme();
@@ -46,11 +50,10 @@ provide('theme', { currentTheme, toggleTheme, setTheme });
 const { bookPages, currentPageIndex, navigatePage, renderPage } = useBookPages();
 provide('bookData', { bookPages, currentPageIndex, navigatePage, renderPage });
 
-// 侧边栏状态
-const isSidebarCollapsed = ref(false);
-provide('sidebarState', isSidebarCollapsed);
+// 提供UI状态
+provide('uiStore', uiStore);
 
-// 初始化应用
+// 组件挂载后执行初始化
 onMounted(() => {
   console.log('App组件已挂载');
   
@@ -59,86 +62,90 @@ onMounted(() => {
     console.log('开始初始化面板宽度和拖动条');
     setInitialPanelWidths();
     initResizer();
-  }, 500);
+    setupPanelWidthListeners();
+    checkDeviceAndAdjustLayout();
+  }, 100);
   
-  // 响应设备类型
-  checkDeviceAndAdjustLayout();
-  
-  // 监听窗口大小改变
+  // 监听窗口大小变化
   window.addEventListener('resize', () => {
+    setInitialPanelWidths();
     checkDeviceAndAdjustLayout();
   });
   
-  // 监听侧边栏折叠/展开事件
-  window.addEventListener('adjust-panel-widths', handleSidebarToggle);
+  // 添加窗口调整事件监听器
+  window.addEventListener('resize', adjustPanelWidths);
+  
+  // 添加调整面板宽度事件监听器
+  window.addEventListener('adjust-panel-widths', adjustPanelWidths);
+});
+
+// 组件卸载前移除事件监听器
+onUnmounted(() => {
+  window.removeEventListener('resize', adjustPanelWidths);
+  window.removeEventListener('adjust-panel-widths', adjustPanelWidths);
 });
 
 // 处理侧边栏折叠/展开事件
 function handleSidebarToggle() {
-  const container = document.querySelector('.main-content');
-  if (!container) return;
+  uiStore.toggleSidebar();
   
-  const sidebar = document.querySelector('#sidebar');
-  const bookPanel = document.querySelector('#book-panel');
-  const chatPanel = document.querySelector('#chat-panel');
-  
-  if (!sidebar || !bookPanel || !chatPanel) return;
-  
-  const availableWidth = container.offsetWidth;
-  
-  if (isSidebarCollapsed.value) {
-    // 侧边栏折叠时，将侧边栏原占空间分配给书籍面板
-    const sidebarWidth = 48; // 折叠后的宽度
-    const bookPanelWidth = parseInt(bookPanel.style.width || bookPanel.offsetWidth);
-    const chatPanelWidth = parseInt(chatPanel.style.width || chatPanel.offsetWidth);
+  // 重新计算面板宽度
+  setTimeout(() => {
+    const container = document.querySelector('.main-content');
+    const bookPanel = document.querySelector('.book-panel');
+    const chatPanel = document.querySelector('.chat-panel');
     
-    // 计算原侧边栏宽度与折叠后宽度的差值
-    const originalSidebarWidth = parseInt(sidebar.dataset.originalWidth || availableWidth * 0.2);
-    const extraSpace = originalSidebarWidth - sidebarWidth;
+    if (!container || !bookPanel || !chatPanel) return;
     
-    // 将额外空间分配给书籍面板
-    bookPanel.style.width = `${bookPanelWidth + extraSpace}px`;
+    const availableWidth = container.offsetWidth;
     
-    // 保存原始宽度以便展开时恢复
-    if (!sidebar.dataset.originalWidth) {
-      sidebar.dataset.originalWidth = `${originalSidebarWidth}`;
-      bookPanel.dataset.originalWidth = `${bookPanelWidth}`;
-    }
-  } else {
-    // 侧边栏展开时，恢复原始宽度
-    if (sidebar.dataset.originalWidth && bookPanel.dataset.originalWidth) {
-      const originalSidebarWidth = parseInt(sidebar.dataset.originalWidth);
-      const originalBookPanelWidth = parseInt(bookPanel.dataset.originalWidth);
+    if (uiStore.isSidebarCollapsed) {
+      // 侧边栏折叠时，将侧边栏原占空间分配给书籍面板
+      const sidebarWidth = 48; // 折叠后的宽度
+      const bookPanelWidth = parseInt(bookPanel.style.width || bookPanel.offsetWidth);
+      const chatPanelWidth = parseInt(chatPanel.style.width || chatPanel.offsetWidth);
       
-      sidebar.style.width = `${originalSidebarWidth}px`;
-      bookPanel.style.width = `${originalBookPanelWidth}px`;
+      const totalWidth = bookPanelWidth + chatPanelWidth;
+      const ratio = bookPanelWidth / totalWidth;
+      
+      // 按比例分配额外空间
+      const extraSpace = 152; // 200 - 48 = 152px
+      const extraForBook = extraSpace * ratio;
+      
+      bookPanel.style.width = `${bookPanelWidth + extraForBook}px`;
+      chatPanel.style.width = `${chatPanelWidth + (extraSpace - extraForBook)}px`;
+    } else {
+      // 恢复默认比例
+      bookPanel.style.width = '40%';
+      chatPanel.style.width = '60%';
     }
-  }
+  }, 300); // 给过渡效果一些时间
 }
 
 // 设置初始面板宽度
 function setInitialPanelWidths() {
-  if (window.innerWidth < 1024) return;
+  const bookPanel = document.getElementById('book-panel');
+  const chatPanel = document.getElementById('chat-panel');
   
-  const container = document.querySelector('.main-content');
-  if (!container) return;
+  if (!bookPanel || !chatPanel) return;
   
-  const sidebar = document.querySelector('#sidebar');
-  const bookPanel = document.querySelector('#book-panel');
-  const chatPanel = document.querySelector('#chat-panel');
+  // 从本地存储或设置默认值
+  let bookPanelWidth = localStorage.getItem('bookPanelWidth') || '40%';
+  let chatPanelWidth = localStorage.getItem('chatPanelWidth') || '60%';
   
-  if (!sidebar || !bookPanel || !chatPanel) return;
+  // 侧边栏折叠状态可能需要调整宽度
+  if (uiStore.isSidebarCollapsed) {
+    // 计算额外空间分配
+    bookPanelWidth = 'calc(40% + 152px)';
+  }
   
-  // 设置默认比例：侧边栏 20%，书籍面板 40%，聊天面板 40%
-  const sidebarRatio = 0.2;
-  const bookRatio = 0.4;
-  const chatRatio = 0.4;
+  // 设置到UI Store
+  uiStore.bookPanelWidth = bookPanelWidth;
+  uiStore.chatPanelWidth = chatPanelWidth;
   
-  const availableWidth = container.offsetWidth;
-  
-  sidebar.style.width = `${availableWidth * sidebarRatio}px`;
-  bookPanel.style.width = `${availableWidth * bookRatio}px`;
-  chatPanel.style.width = `${availableWidth * chatRatio}px`;
+  // 应用样式
+  bookPanel.style.width = bookPanelWidth;
+  chatPanel.style.width = chatPanelWidth;
 }
 
 // 根据设备类型调整布局
@@ -157,146 +164,221 @@ function checkDeviceAndAdjustLayout() {
   }
 }
 
-// 新的拖动条实现
+// 监听调整面板宽度事件
+function setupPanelWidthListeners() {
+  window.addEventListener('adjust-panel-widths', () => {
+    // 调整两个面板的宽度
+    const bookPanel = document.querySelector('#book-panel');
+    const chatPanel = document.querySelector('#chat-panel');
+    
+    if (!bookPanel || !chatPanel) return;
+    
+    // 从UI Store获取最新宽度
+    bookPanel.style.width = uiStore.bookPanelWidth;
+    chatPanel.style.width = uiStore.chatPanelWidth;
+  });
+}
+
+// 初始化拖动条功能
 function initResizer() {
-  console.log('初始化拖动条...');
-  const resizer = document.querySelector('#resizer');
-  const leftPanel = document.querySelector('#book-panel');
-  const rightPanel = document.querySelector('#chat-panel');
+  const resizer = document.getElementById('resizer');
+  const bookPanel = document.getElementById('book-panel');
+  const chatPanel = document.getElementById('chat-panel');
   
-  if (!resizer) console.error('拖动条元素不存在');
-  if (!leftPanel) console.error('左侧面板元素不存在');
-  if (!rightPanel) console.error('右侧面板元素不存在');
-  
-  if (!resizer || !leftPanel || !rightPanel) {
-    console.error('拖动条初始化失败: 缺少必要元素');
+  if (!resizer || !bookPanel || !chatPanel) {
+    console.error('无法找到拖动条或面板元素');
     return;
   }
   
-  console.log('找到所有必要元素，继续初始化拖动条');
+  let isResizing = false;
+  let initialX;
+  let initialBookWidth;
+  let initialChatWidth;
   
-  // 添加数据属性标识这是主拖动条
-  resizer.setAttribute('data-main-resizer', 'true');
-  
-  // 确保拖动条可见并有足够的宽度便于用户抓取
-  resizer.style.opacity = '1';
-  resizer.style.width = '8px';
-  resizer.style.zIndex = '100';
-  resizer.style.backgroundColor = '#e5e7eb';
-  
-  console.log('设置拖动条样式完成');
-  
-  const handleMouseDown = (e) => {
-    console.log('拖动条鼠标按下事件触发');
-    e.preventDefault();
-    e.stopPropagation();
+  // 鼠标按下事件
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    initialX = e.clientX;
+    initialBookWidth = bookPanel.offsetWidth;
+    initialChatWidth = chatPanel.offsetWidth;
+    
+    // 添加临时事件监听器
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // 添加调整中的视觉指示
+    resizer.classList.add('active');
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-    
-    const startX = e.clientX;
-    const leftWidth = leftPanel.getBoundingClientRect().width;
-    const rightWidth = rightPanel.getBoundingClientRect().width;
-    const totalWidth = leftWidth + rightWidth;
-    
-    console.log(`开始拖动: 左宽=${leftWidth}px, 右宽=${rightWidth}px, 总宽=${totalWidth}px`);
-    
-    const onMouseMove = (moveEvent) => {
-      const dx = moveEvent.clientX - startX;
-      // 确保最小宽度，防止面板变得太小
-      const newLeftWidth = Math.max(300, Math.min(totalWidth - 300, leftWidth + dx));
-      const newRightWidth = totalWidth - newLeftWidth;
-      
-      leftPanel.style.width = `${newLeftWidth}px`;
-      rightPanel.style.width = `${newRightWidth}px`;
-      
-      // 添加拖动状态类来提高视觉反馈
-      resizer.classList.add('resizer-active');
-      
-      // 每100px移动记录一次日志
-      if (Math.abs(dx) % 100 < 5) {
-        console.log(`拖动中: 左宽=${newLeftWidth}px, 右宽=${newRightWidth}px, 位移=${dx}px`);
-      }
-    };
-    
-    const onMouseUp = () => {
-      console.log('拖动结束');
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      resizer.classList.remove('resizer-active');
-    };
-    
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
-  
-  // 移除所有现有事件监听器后重新添加
-  const oldResizer = resizer;
-  const newResizer = resizer.cloneNode(true);
-  oldResizer.parentNode.replaceChild(newResizer, oldResizer);
-  
-  console.log('已克隆并替换拖动条元素，准备添加事件监听器');
-  
-  // 添加事件监听器
-  newResizer.addEventListener('mousedown', handleMouseDown);
-  
-  // 添加悬停和活动状态的视觉提示
-  newResizer.addEventListener('mouseover', () => {
-    newResizer.style.backgroundColor = '#3b82f6';
   });
   
-  newResizer.addEventListener('mouseleave', () => {
-    if (!newResizer.classList.contains('resizer-active')) {
-      newResizer.style.backgroundColor = '#e5e7eb';
+  // 处理鼠标移动
+  function handleMouseMove(e) {
+    if (!isResizing) return;
+    
+    const totalWidth = initialBookWidth + initialChatWidth;
+    const minWidth = totalWidth * 0.2; // 最小宽度为总宽度的20%
+    const maxWidth = totalWidth * 0.8; // 最大宽度为总宽度的80%
+    
+    // 计算拖动距离
+    const deltaX = e.clientX - initialX;
+    
+    // 计算新的面板宽度
+    let newBookWidth = initialBookWidth + deltaX;
+    let newChatWidth = initialChatWidth - deltaX;
+    
+    // 限制面板最小和最大宽度
+    if (newBookWidth < minWidth) {
+      newBookWidth = minWidth;
+      newChatWidth = totalWidth - minWidth;
+    } else if (newBookWidth > maxWidth) {
+      newBookWidth = maxWidth;
+      newChatWidth = totalWidth - maxWidth;
     }
-  });
+    
+    // 设置新的宽度
+    bookPanel.style.width = `${newBookWidth}px`;
+    chatPanel.style.width = `${newChatWidth}px`;
+    
+    // 更新UI Store中的宽度值（使用百分比）
+    const bookWidthPercentage = Math.round((newBookWidth / totalWidth) * 100);
+    const chatWidthPercentage = 100 - bookWidthPercentage;
+    
+    uiStore.bookPanelWidth = `${bookWidthPercentage}%`;
+    uiStore.chatPanelWidth = `${chatWidthPercentage}%`;
+    
+    // 保存到本地存储
+    localStorage.setItem('bookPanelWidth', `${bookWidthPercentage}%`);
+    localStorage.setItem('chatPanelWidth', `${chatWidthPercentage}%`);
+  }
   
-  console.log('拖动条初始化完成');
+  // 处理鼠标释放
+  function handleMouseUp() {
+    isResizing = false;
+    
+    // 移除临时事件监听器
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    
+    // 移除调整中的视觉指示
+    resizer.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
 }
+
+// 调整面板宽度
+function adjustPanelWidths() {
+  const bookPanel = document.getElementById('book-panel');
+  const chatPanel = document.getElementById('chat-panel');
+  
+  if (!bookPanel || !chatPanel) return;
+  
+  // 获取UI Store中的宽度值
+  const bookPanelWidth = uiStore.bookPanelWidth;
+  const chatPanelWidth = uiStore.chatPanelWidth;
+  
+  // 应用宽度样式
+  bookPanel.style.width = bookPanelWidth;
+  chatPanel.style.width = chatPanelWidth;
+}
+
+// 调整面板宽度
+adjustPanelWidths();
 </script>
 
 <style scoped>
 .main-content-container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
   height: calc(100vh - 60px);
-  width: 100%;
   overflow: hidden;
 }
 
 .main-content {
   display: flex;
   height: 100%;
-}
-
-.panel-container {
   position: relative;
-  transition: width 0.3s ease;
 }
 
-.panel-container-transition {
-  transition: width 0.3s ease, margin 0.3s ease;
+.content-container {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  margin-left: 1rem;
 }
 
-/* 修复拖动条样式 */
+.content-expanded {
+  margin-left: 1rem;
+}
+
+.content-collapsed {
+  margin-left: 0;
+}
+
 .resizer {
-  width: 8px;
+  width: 0.5rem;
   background-color: #e5e7eb;
   cursor: col-resize;
   transition: background-color 0.2s ease;
   z-index: 10;
-  opacity: 1;
-  margin: 0 -3px;
 }
 
-.resizer:hover, .resizer-active {
+.resizer:hover {
   background-color: #3b82f6;
 }
 
-.dark .resizer {
+.resizer.active {
+  background-color: #3b82f6;
+}
+
+/* 深色模式样式优化 */
+:global(.dark) {
+  background-color: #111827;
+  color: #e5e7eb;
+}
+
+:global(.dark) .main-content-container {
+  background-color: #111827;
+}
+
+:global(.dark) .resizer {
   background-color: #374151;
 }
 
-.dark .resizer:hover, .dark .resizer-active {
-  background-color: #3b82f6;
+:global(.dark) .resizer:hover,
+:global(.dark) .resizer.active {
+  background-color: #4d98ff;
+}
+
+/* 响应式样式 */
+@media (max-width: 1024px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .content-container {
+    flex-direction: column;
+    margin-left: 0;
+    margin-top: 1rem;
+  }
+  
+  .resizer {
+    width: 100%;
+    height: 0.5rem;
+    cursor: row-resize;
+  }
+}
+
+/* 面板过渡效果 */
+#book-panel, #chat-panel {
+  transition: width 0.3s ease;
+}
+
+/* 当侧边栏折叠/展开时，内容区域过渡效果 */
+.content-expanded, .content-collapsed {
+  transition: all 0.3s ease;
 }
 </style>
